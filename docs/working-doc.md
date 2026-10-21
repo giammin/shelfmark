@@ -267,14 +267,15 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Creato `CLAUDE.md` con il solo import `@AGENTS.md` (D25). |
 | 2026-10-21 | Branch `chore/initial-setup`: scheletro Angular 22 + Material + PWA (D26), fine riga LF (D27), `.gitignore` esteso (segreti, Firebase, Visual Studio, impostazioni locali di Claude Code). Build e test verdi. |
 | 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
+| 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso sul branch `chore/initial-setup` (non ancora pushato né mergiato): `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima.
-- Prossimo passo: push del branch e PR per verificare la CI su GitHub; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
-- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` non è installato sulla macchina dell'utente (necessario per D10 e Fase 1).
+- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso: PR #1 (`chore/initial-setup`) aperta con CI verde, in attesa di review e merge umano. Contiene `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima.
+- Prossimo passo: review e merge della PR #1; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` installato e autenticato con l'account personale (gli agent useranno i token delle GitHub App, sezione 4).
 - Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
 
 ---
