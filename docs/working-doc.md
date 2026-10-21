@@ -119,6 +119,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D27 | Fine riga LF per tutti i file di testo (`.gitattributes` con `eol=lf`, `.editorconfig`), CRLF solo per `.cmd`/`.bat` | Gli agent girano su runner Linux; l'umano lavora su Windows con IDE diversi (Rider, WebStorm, VS Code, Visual Studio) | `core.autocrlf` per macchina | - |
 | D28 | ESLint: preset `angular-eslint` (ts, template, accessibilità) con typed linting; regole aggiuntive `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) e `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` con alias `takeUntilDestroyed` su Component, Directive, Injectable) | Controlli deterministici contro pattern obsoleti e leak di subscription (rischio "punti ciechi correlati") | Solo preset raccomandato; `prefer-async-pipe` (troppo restrittivo) | In Angular 22 OnPush è il default: `prefer-on-push-component-change-detection` segnala solo `ChangeDetectionStrategy.Eager`. Regole verificate con un componente di prova |
 | D29 | CI minima `ci.yml`: lint, build, test su PR e push su `main`; Node 24, `permissions: contents: read`, `timeout-minutes: 15`, `concurrency` per ref | Base per la regola "CI verde" del merge e per agentMR | - | Test delle security rules aggiunti quando Firebase sarà configurato |
+| D30 | Lingua: inglese per tutto (codice, commenti, commit, branch, issue, PR, review, specifiche, design, prompt); unica eccezione temporanea questo documento, in italiano fino alla traduzione | Repo pubblico; coerenza tra artefatti prodotti da umano e agent | Italiano per specifiche e issue | Convenzione riportata in `AGENTS.md` |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -169,6 +170,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [ ] Aggiungere al repository la struttura della sezione 2.4 e questo documento come `docs/working-doc.md`.
 - [x] Creare `AGENTS.md` e `CLAUDE.md` con il solo import `@AGENTS.md`.
 - [ ] Creare le label della sezione 2.3.
+- [ ] Tradurre in inglese questo documento (D30).
 - [ ] Configurare ruleset/branch protection su `main`: 2 approve, CI verde, review CODEOWNERS.
 - [ ] Configurare CODEOWNERS su `.github/` e `agents/`.
 - [ ] Abilitare sul progetto Firebase (piano Spark) Hosting, Auth (provider Google) e Firestore.
@@ -268,6 +270,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Branch `chore/initial-setup`: scheletro Angular 22 + Material + PWA (D26), fine riga LF (D27), `.gitignore` esteso (segreti, Firebase, Visual Studio, impostazioni locali di Claude Code). Build e test verdi. |
 | 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
 | 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
+| 2026-10-21 | Lingua inglese per tutti gli artefatti tranne questo documento (D30); convenzione aggiunta in `AGENTS.md`. |
 
 ---
 
