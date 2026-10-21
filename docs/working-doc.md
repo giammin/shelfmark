@@ -80,7 +80,9 @@ docs/
   design/                 # design realizzativo e ADR (agentA, rivisto dall'umano)
 src/                      # applicazione Angular (workspace nella root, D26)
 public/                   # asset statici, manifest PWA, icone
+test/rules/               # test delle security rules (Emulator Suite, D34)
 angular.json, package.json, tsconfig*.json, ngsw-config.json
+firebase.json, .firebaserc, firestore.rules, firestore.indexes.json
 AGENTS.md                 # convenzioni comuni a tutti gli agent e rimando a docs/working-doc.md
 CLAUDE.md                 # contiene solo l'import @AGENTS.md
 ```
@@ -123,6 +125,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D31 | Merge solo squash (titolo e descrizione della PR come messaggio di commit), merge commit e rebase disabilitati; eliminazione automatica del branch dopo il merge | Storia di `main` lineare, un commit per PR; nessun branch residuo degli agent | Merge commit (usato per la PR #1) | - |
 | D32 | Ruleset `main` iniziale: PR obbligatoria con 0 approve, check `build` obbligatorio, force push ed eliminazione bloccati, nessun bypass. 2 approve e review CODEOWNERS rimandati a quando agentMR sarà operativo | Con un solo collaboratore umano l'autore non può approvare la propria PR: 2 approve o review CODEOWNERS bloccherebbero ogni merge | 2 approve da subito; bypass per l'admin | Fino ad allora la protezione di prompt e workflow (D6) si basa sulla sola CI; il file `CODEOWNERS` è già presente |
 | D33 | Titoli delle PR in formato Conventional Commits (tipi: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), a partire dalla PR #2 | Con lo squash (D31) il titolo diventa il commit su `main`: base per un changelog automatico (Q19) | Titoli liberi | Convenzione riportata in `AGENTS.md`; i commit intermedi sui branch restano liberi |
+| D34 | Setup Firebase: `firebase-tools` come devDependency; Firestore `(default)` in `europe-west8` (edizione standard), creato con `firebase deploy --only firestore`; regole iniziali che negano tutto; test delle regole con `@firebase/rules-unit-testing` e Vitest nell'emulatore con progetto `demo-shelfmark` (nessun secret in CI), eseguiti nel job `build`; web app registrata (App ID `1:1015280431392:web:d86325b6cd0b021707a745`, config con `firebase apps:sdkconfig WEB <App ID>`); Hosting su `dist/shelfmark/browser` con rewrite SPA e `no-cache` per `index.html`, route, service worker e manifest | Versione della CLI uguale in locale e in CI; database chiuso finché il design non definisce le regole; header di cache necessari per gli aggiornamenti della PWA | `firebase-tools` globale; `eur3`, `europe-west1` | AngularFire 20.1.1 supporta solo Angular 20: l'integrazione nell'app (SDK `firebase` diretto o AngularFire) è una decisione di design per agentA; `firebase` è per ora una devDependency usata dai test |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -176,12 +179,13 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [ ] Tradurre in inglese questo documento (D30).
 - [x] Configurare il ruleset iniziale su `main`: PR obbligatoria, CI verde, solo squash (D31, D32).
 - [x] Configurare CODEOWNERS su `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
-- [ ] Abilitare sul progetto Firebase (piano Spark) Hosting, Auth (provider Google) e Firestore.
+- [x] Abilitare sul progetto Firebase (piano Spark) Hosting e Firestore; registrare la web app; primo deploy (D34).
+- [ ] Abilitare Auth con provider Google (solo da console: Authentication -> Sign-in method -> Google).
 - [ ] (Opzionale) Valutare un sito Hosting aggiuntivo con nome più pulito o un dominio personalizzato.
 - [x] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict (D26).
 - [x] Configurare `angular-eslint` con regole contro pattern obsoleti e leak di subscription (D28).
 - [x] Predisporre una CI minima (build, lint, test) prima che agentP scriva codice (D29).
-- [ ] Aggiungere alla CI i test delle security rules con Emulator Suite (dopo la configurazione di Firestore).
+- [x] Aggiungere alla CI i test delle security rules con Emulator Suite (D34).
 - [ ] Configurare i preview channel di Firebase Hosting per le PR.
 - [ ] Configurare gli IDE (Rider/WebStorm, VS Code) per usare la configurazione ESLint del progetto.
 
@@ -242,7 +246,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | Q17 | Metodo di autenticazione | Chiusa: Google (D19) |
 | Q7 | Ambiente di isolamento locale: WSL o devcontainer | Aperta |
 | Q8 | Valore iniziale del limite di iterazioni agentP <-> agentMR | Aperta |
-| Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite` |
+| Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite`. Con D34 si aggiungono vulnerabilità transitive di `firebase-tools` (solo strumenti) e di `@grpc/grpc-js` via `firebase` (lato server gRPC, non usato dall'SDK nel browser); i fix proposti da npm sono downgrade di major |
 | Q19 | Changelog automatico a partire dai commit di squash (titolo PR); Conventional Commits nei titoli delle PR adottati (D33); restano da scegliere lo strumento (es. release-please) e un eventuale controllo del titolo in CI | Aperta: da discutere più avanti |
 
 ---
@@ -277,14 +281,15 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
 | 2026-10-21 | Lingua inglese per tutti gli artefatti tranne questo documento (D30); convenzione aggiunta in `AGENTS.md`. |
 | 2026-10-21 | PR #1 mergiata. Merge solo squash con eliminazione automatica dei branch (D31); create le label di stato; ruleset iniziale su `main` (D32); `CODEOWNERS`. Titoli delle PR in Conventional Commits (D33). |
+| 2026-10-21 | PR #2 mergiata. Branch `chore/firebase-setup`: Firestore creato in `europe-west8` con regole deny-all, web app registrata, primo deploy su `shelfmark-bd1a8.web.app` con header di cache verificati, test delle regole in CI (D34). |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso. In `main`: `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima. Configurati su GitHub: merge solo squash, label di stato, ruleset iniziale (D31, D32). Branch `chore/repo-governance` con `CODEOWNERS`.
-- Prossimo passo: merge di `chore/repo-governance`; tradurre questo documento (D30); abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
-- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` installato e autenticato con l'account personale (gli agent useranno i token delle GitHub App, sezione 4).
+- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso. In `main`: `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima. Configurati su GitHub: merge solo squash, label di stato, ruleset iniziale, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting e web app attivi (D34); branch `chore/firebase-setup` in PR.
+- Prossimo passo: merge di `chore/firebase-setup`; abilitare il provider Google in Auth (console); preview channel di Hosting per le PR (branch separato); tradurre questo documento (D30); redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` installato e autenticato con l'account personale (gli agent useranno i token delle GitHub App, sezione 4); Firebase CLI (`npx firebase`) autenticata con l'account Google privato dell'utente: le credenziali gcloud della macchina appartengono a un altro account e non vanno usate per questo progetto.
 - Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
 
 ---
