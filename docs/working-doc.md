@@ -66,7 +66,7 @@ PR:     in-review -> changes-requested -> in-review -> approved-by-agent -> merg
     agent-dev.yml         # label ready / commenti -> agentP
     agent-review.yml      # PR aperta / aggiornata -> agentMR
     agent-retry.yml       # schedule: ripresa issue agent-failed
-  CODEOWNERS              # .github/ e agents/ -> review umana obbligatoria
+  CODEOWNERS              # .github/, agents/, AGENTS.md, CLAUDE.md -> review umana obbligatoria (D6, D32)
 agents/
   architect.md            # agentA (architect tecnico)
   issue-planner.md        # agentI
@@ -96,7 +96,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D3 | Una GitHub App per agent | L'autore di una PR non può approvarla; gli eventi generati con `GITHUB_TOKEN` non avviano altri workflow | Identità unica; account bot | - |
 | D4 | agentA e agentI separati | agentA decide la struttura (moduli, componenti, contratti); agentI decide le unità di lavoro (issue, granularità, ordine) | Agent unico | Condividono `AGENTS.md` |
 | D5 | Chiarimenti: risposta solo da specifiche (funzionali, agentI) o design (tecnici, agentA), altrimenti escalation all'umano | Evitare che gli agent prendano decisioni di design | Risposta libera di agentI/agentA | - |
-| D6 | Prompt e workflow protetti da CODEOWNERS; le App non hanno il permesso `workflows` | Impedire agli agent di modificare le proprie istruzioni | Nessuna protezione | - |
+| D6 | Prompt e workflow protetti da CODEOWNERS (`.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`); le App non hanno il permesso `workflows` | Impedire agli agent di modificare le proprie istruzioni | Nessuna protezione | - |
 | D7 | Un'issue alla volta (concurrency globale) | Evitare conflitti tra PR e picchi di consumo | Parallelismo | Rivalutabile dopo la stabilizzazione |
 | D8 | Limite di iterazioni agentP <-> agentMR, poi `needs-human` | Evitare loop non convergenti | Nessun limite | Valore iniziale N da definire (vedi Q8) |
 | D9 | Fase locale prima delle Actions | Test più controllato | Partire direttamente in CI | Vedi sezione 4 |
@@ -120,6 +120,8 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D28 | ESLint: preset `angular-eslint` (ts, template, accessibilità) con typed linting; regole aggiuntive `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) e `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` con alias `takeUntilDestroyed` su Component, Directive, Injectable) | Controlli deterministici contro pattern obsoleti e leak di subscription (rischio "punti ciechi correlati") | Solo preset raccomandato; `prefer-async-pipe` (troppo restrittivo) | In Angular 22 OnPush è il default: `prefer-on-push-component-change-detection` segnala solo `ChangeDetectionStrategy.Eager`. Regole verificate con un componente di prova |
 | D29 | CI minima `ci.yml`: lint, build, test su PR e push su `main`; Node 24, `permissions: contents: read`, `timeout-minutes: 15`, `concurrency` per ref | Base per la regola "CI verde" del merge e per agentMR | - | Test delle security rules aggiunti quando Firebase sarà configurato |
 | D30 | Lingua: inglese per tutto (codice, commenti, commit, branch, issue, PR, review, specifiche, design, prompt); unica eccezione temporanea questo documento, in italiano fino alla traduzione | Repo pubblico; coerenza tra artefatti prodotti da umano e agent | Italiano per specifiche e issue | Convenzione riportata in `AGENTS.md` |
+| D31 | Merge solo squash (titolo e descrizione della PR come messaggio di commit), merge commit e rebase disabilitati; eliminazione automatica del branch dopo il merge | Storia di `main` lineare, un commit per PR; nessun branch residuo degli agent | Merge commit (usato per la PR #1) | - |
+| D32 | Ruleset `main` iniziale: PR obbligatoria con 0 approve, check `build` obbligatorio, force push ed eliminazione bloccati, nessun bypass. 2 approve e review CODEOWNERS rimandati a quando agentMR sarà operativo | Con un solo collaboratore umano l'autore non può approvare la propria PR: 2 approve o review CODEOWNERS bloccherebbero ogni merge | 2 approve da subito; bypass per l'admin | Fino ad allora la protezione di prompt e workflow (D6) si basa sulla sola CI; il file `CODEOWNERS` è già presente |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -169,10 +171,10 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [x] Creare il repository pubblico `shelfmark` (`git@github.com:giammin/shelfmark.git`, licenza AGPL-3.0, senza `.gitignore` iniziale).
 - [ ] Aggiungere al repository la struttura della sezione 2.4 e questo documento come `docs/working-doc.md`.
 - [x] Creare `AGENTS.md` e `CLAUDE.md` con il solo import `@AGENTS.md`.
-- [ ] Creare le label della sezione 2.3.
+- [x] Creare le label della sezione 2.3.
 - [ ] Tradurre in inglese questo documento (D30).
-- [ ] Configurare ruleset/branch protection su `main`: 2 approve, CI verde, review CODEOWNERS.
-- [ ] Configurare CODEOWNERS su `.github/` e `agents/`.
+- [x] Configurare il ruleset iniziale su `main`: PR obbligatoria, CI verde, solo squash (D31, D32).
+- [x] Configurare CODEOWNERS su `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
 - [ ] Abilitare sul progetto Firebase (piano Spark) Hosting, Auth (provider Google) e Firestore.
 - [ ] (Opzionale) Valutare un sito Hosting aggiuntivo con nome più pulito o un dominio personalizzato.
 - [x] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict (D26).
@@ -205,6 +207,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 
 ### Fase 4 - Migrazione alle Actions (un agent alla volta)
 - [ ] agentMR: `agent-review.yml`, con `timeout-minutes`, `concurrency`, `--max-turns`.
+- [ ] Portare il ruleset di `main` a 2 approve con review CODEOWNERS obbligatoria (D32).
 - [ ] agentP: `agent-dev.yml`, con gestione `if: failure()` e label `agent-failed`.
 - [ ] agentI: `agent-issues.yml`.
 - [ ] Ripresa automatica: `agent-retry.yml` (schedule, soglia di tentativi).
@@ -239,6 +242,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | Q7 | Ambiente di isolamento locale: WSL o devcontainer | Aperta |
 | Q8 | Valore iniziale del limite di iterazioni agentP <-> agentMR | Aperta |
 | Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite` |
+| Q19 | Changelog automatico a partire dai commit di squash (titolo PR); valutare Conventional Commits nei titoli delle PR (es. `feat:`, `fix:`, `chore:`) e uno strumento come release-please | Aperta: da discutere più avanti |
 
 ---
 
@@ -271,13 +275,14 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
 | 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
 | 2026-10-21 | Lingua inglese per tutti gli artefatti tranne questo documento (D30); convenzione aggiunta in `AGENTS.md`. |
+| 2026-10-21 | PR #1 mergiata. Merge solo squash con eliminazione automatica dei branch (D31); create le label di stato; ruleset iniziale su `main` (D32); `CODEOWNERS`. |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso: PR #1 (`chore/initial-setup`) aperta con CI verde, in attesa di review e merge umano. Contiene `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima.
-- Prossimo passo: review e merge della PR #1; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso. In `main`: `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima. Configurati su GitHub: merge solo squash, label di stato, ruleset iniziale (D31, D32). Branch `chore/repo-governance` con `CODEOWNERS`.
+- Prossimo passo: merge di `chore/repo-governance`; tradurre questo documento (D30); abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
 - Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` installato e autenticato con l'account personale (gli agent useranno i token delle GitHub App, sezione 4).
 - Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
 
