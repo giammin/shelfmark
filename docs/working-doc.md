@@ -122,6 +122,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D30 | Lingua: inglese per tutto (codice, commenti, commit, branch, issue, PR, review, specifiche, design, prompt); unica eccezione temporanea questo documento, in italiano fino alla traduzione | Repo pubblico; coerenza tra artefatti prodotti da umano e agent | Italiano per specifiche e issue | Convenzione riportata in `AGENTS.md` |
 | D31 | Merge solo squash (titolo e descrizione della PR come messaggio di commit), merge commit e rebase disabilitati; eliminazione automatica del branch dopo il merge | Storia di `main` lineare, un commit per PR; nessun branch residuo degli agent | Merge commit (usato per la PR #1) | - |
 | D32 | Ruleset `main` iniziale: PR obbligatoria con 0 approve, check `build` obbligatorio, force push ed eliminazione bloccati, nessun bypass. 2 approve e review CODEOWNERS rimandati a quando agentMR sarà operativo | Con un solo collaboratore umano l'autore non può approvare la propria PR: 2 approve o review CODEOWNERS bloccherebbero ogni merge | 2 approve da subito; bypass per l'admin | Fino ad allora la protezione di prompt e workflow (D6) si basa sulla sola CI; il file `CODEOWNERS` è già presente |
+| D33 | Titoli delle PR in formato Conventional Commits (tipi: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), a partire dalla PR #2 | Con lo squash (D31) il titolo diventa il commit su `main`: base per un changelog automatico (Q19) | Titoli liberi | Convenzione riportata in `AGENTS.md`; i commit intermedi sui branch restano liberi |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -242,7 +243,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | Q7 | Ambiente di isolamento locale: WSL o devcontainer | Aperta |
 | Q8 | Valore iniziale del limite di iterazioni agentP <-> agentMR | Aperta |
 | Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite` |
-| Q19 | Changelog automatico a partire dai commit di squash (titolo PR); valutare Conventional Commits nei titoli delle PR (es. `feat:`, `fix:`, `chore:`) e uno strumento come release-please | Aperta: da discutere più avanti |
+| Q19 | Changelog automatico a partire dai commit di squash (titolo PR); Conventional Commits nei titoli delle PR adottati (D33); restano da scegliere lo strumento (es. release-please) e un eventuale controllo del titolo in CI | Aperta: da discutere più avanti |
 
 ---
 
@@ -275,7 +276,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
 | 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
 | 2026-10-21 | Lingua inglese per tutti gli artefatti tranne questo documento (D30); convenzione aggiunta in `AGENTS.md`. |
-| 2026-10-21 | PR #1 mergiata. Merge solo squash con eliminazione automatica dei branch (D31); create le label di stato; ruleset iniziale su `main` (D32); `CODEOWNERS`. |
+| 2026-10-21 | PR #1 mergiata. Merge solo squash con eliminazione automatica dei branch (D31); create le label di stato; ruleset iniziale su `main` (D32); `CODEOWNERS`. Titoli delle PR in Conventional Commits (D33). |
 
 ---
 
