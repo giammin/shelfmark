@@ -61,6 +61,7 @@ PR:     in-review -> changes-requested -> in-review -> approved-by-agent -> merg
 ```
 .github/
   workflows/
+    ci.yml                # PR e push su main: lint, build, test (D29)
     agent-issues.yml      # push su docs/specs -> agentI
     agent-dev.yml         # label ready / commenti -> agentP
     agent-review.yml      # PR aperta / aggiornata -> agentMR
@@ -116,6 +117,8 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D25 | Istruzioni agent-agnostiche in `AGENTS.md`; `CLAUDE.md` contiene solo l'import `@AGENTS.md`; `agents/shared.md` assorbito in `AGENTS.md` | Indipendenza dallo strumento; un solo file di convenzioni | Solo `CLAUDE.md`; symlink (richiede permessi su Windows); affidarsi alla lettura nativa di `AGENTS.md` da parte di Claude Code (dipende dalla versione e dalla presenza di altri `CLAUDE.md`) | La action in CI esegue Claude Code e legge quindi `CLAUDE.md` |
 | D26 | Scheletro Angular 22 nella root del repo: standalone, zoneless, TypeScript strict, SCSS, Vitest, senza SSR; Angular Material (tema azure/blue di default) e `@angular/pwa`; `--ai-config=none` | Una sola app: CI e `firebase.json` più semplici; zoneless coerente con signals (D20); PWA statica su Hosting | Workspace in sottocartella (`web/`); SSR; Karma | Richiede Node >= 24.15 (requisito di Angular CLI 22); tema e font (oggi da Google Fonts, non disponibili offline) da rivedere nel design |
 | D27 | Fine riga LF per tutti i file di testo (`.gitattributes` con `eol=lf`, `.editorconfig`), CRLF solo per `.cmd`/`.bat` | Gli agent girano su runner Linux; l'umano lavora su Windows con IDE diversi (Rider, WebStorm, VS Code, Visual Studio) | `core.autocrlf` per macchina | - |
+| D28 | ESLint: preset `angular-eslint` (ts, template, accessibilità) con typed linting; regole aggiuntive `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) e `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` con alias `takeUntilDestroyed` su Component, Directive, Injectable) | Controlli deterministici contro pattern obsoleti e leak di subscription (rischio "punti ciechi correlati") | Solo preset raccomandato; `prefer-async-pipe` (troppo restrittivo) | In Angular 22 OnPush è il default: `prefer-on-push-component-change-detection` segnala solo `ChangeDetectionStrategy.Eager`. Regole verificate con un componente di prova |
+| D29 | CI minima `ci.yml`: lint, build, test su PR e push su `main`; Node 24, `permissions: contents: read`, `timeout-minutes: 15`, `concurrency` per ref | Base per la regola "CI verde" del merge e per agentMR | - | Test delle security rules aggiunti quando Firebase sarà configurato |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -171,8 +174,9 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [ ] Abilitare sul progetto Firebase (piano Spark) Hosting, Auth (provider Google) e Firestore.
 - [ ] (Opzionale) Valutare un sito Hosting aggiuntivo con nome più pulito o un dominio personalizzato.
 - [x] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict (D26).
-- [ ] Configurare `angular-eslint` con regole contro pattern obsoleti e leak di subscription.
-- [ ] Predisporre una CI minima (build, lint, test, test delle security rules con Emulator Suite) prima che agentP scriva codice.
+- [x] Configurare `angular-eslint` con regole contro pattern obsoleti e leak di subscription (D28).
+- [x] Predisporre una CI minima (build, lint, test) prima che agentP scriva codice (D29).
+- [ ] Aggiungere alla CI i test delle security rules con Emulator Suite (dopo la configurazione di Firestore).
 - [ ] Configurare i preview channel di Firebase Hosting per le PR.
 - [ ] Configurare gli IDE (Rider/WebStorm, VS Code) per usare la configurazione ESLint del progetto.
 
@@ -262,14 +266,15 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Istruzioni agent-agnostiche in `AGENTS.md` (D25). |
 | 2026-10-21 | Creato `CLAUDE.md` con il solo import `@AGENTS.md` (D25). |
 | 2026-10-21 | Branch `chore/initial-setup`: scheletro Angular 22 + Material + PWA (D26), fine riga LF (D27), `.gitignore` esteso (segreti, Firebase, Visual Studio, impostazioni locali di Claude Code). Build e test verdi. |
+| 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso sul branch `chore/initial-setup` (non ancora pushato né mergiato): `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`.
-- Prossimo passo: `angular-eslint` e CI minima sullo stesso setup; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
-- Requisito ambiente: Node >= 24.15 (Angular CLI 22).
+- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso sul branch `chore/initial-setup` (non ancora pushato né mergiato): `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima.
+- Prossimo passo: push del branch e PR per verificare la CI su GitHub; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` non è installato sulla macchina dell'utente (necessario per D10 e Fase 1).
 - Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
 
 ---
