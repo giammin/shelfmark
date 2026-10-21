@@ -77,6 +77,9 @@ scripts/
 docs/
   specs/                  # specifiche funzionali (umano)
   design/                 # design realizzativo e ADR (agentA, rivisto dall'umano)
+src/                      # applicazione Angular (workspace nella root, D26)
+public/                   # asset statici, manifest PWA, icone
+angular.json, package.json, tsconfig*.json, ngsw-config.json
 AGENTS.md                 # convenzioni comuni a tutti gli agent e rimando a docs/working-doc.md
 CLAUDE.md                 # contiene solo l'import @AGENTS.md
 ```
@@ -111,6 +114,8 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | D23 | Nome del repository e dell'app: `shelfmark` | Termine bibliotecario per la segnatura di collocazione; adatto a un repo pubblico | bookwhere, scaffale, dovelho, libroteca | Progetto Firebase creato con id `shelfmark-bd1a8` (id `shelfmark` non disponibile); URL di default `shelfmark-bd1a8.web.app` |
 | D24 | Licenza AGPL-3.0 | Chi pubblica online una versione modificata deve rilasciarne il sorgente | MIT, Apache-2.0, nessuna licenza | La licenza copre anche i prompt in `agents/` salvo licenza separata per quella cartella |
 | D25 | Istruzioni agent-agnostiche in `AGENTS.md`; `CLAUDE.md` contiene solo l'import `@AGENTS.md`; `agents/shared.md` assorbito in `AGENTS.md` | Indipendenza dallo strumento; un solo file di convenzioni | Solo `CLAUDE.md`; symlink (richiede permessi su Windows); affidarsi alla lettura nativa di `AGENTS.md` da parte di Claude Code (dipende dalla versione e dalla presenza di altri `CLAUDE.md`) | La action in CI esegue Claude Code e legge quindi `CLAUDE.md` |
+| D26 | Scheletro Angular 22 nella root del repo: standalone, zoneless, TypeScript strict, SCSS, Vitest, senza SSR; Angular Material (tema azure/blue di default) e `@angular/pwa`; `--ai-config=none` | Una sola app: CI e `firebase.json` più semplici; zoneless coerente con signals (D20); PWA statica su Hosting | Workspace in sottocartella (`web/`); SSR; Karma | Richiede Node >= 24.15 (requisito di Angular CLI 22); tema e font (oggi da Google Fonts, non disponibili offline) da rivedere nel design |
+| D27 | Fine riga LF per tutti i file di testo (`.gitattributes` con `eol=lf`, `.editorconfig`), CRLF solo per `.cmd`/`.bat` | Gli agent girano su runner Linux; l'umano lavora su Windows con IDE diversi (Rider, WebStorm, VS Code, Visual Studio) | `core.autocrlf` per macchina | - |
 | D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
 
 ---
@@ -138,7 +143,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | Agent che modificano prompt o workflow | CODEOWNERS e permessi ridotti delle App (D6) |
 | Decisioni inventate dagli agent | D5 |
 | Review superficiale | agentMR basato su build e test in CI; criteri di accettazione verificabili nelle issue |
-| Confusione tra strumenti personali e protezioni: i controlli dell'IDE non sono visibili agli agent | Ogni controllo vincolante risiede nella configurazione del repository e in CI; l'IDE (JetBrains) è solo uno strumento di review dell'utente e usa la stessa configurazione ESLint |
+| Confusione tra strumenti personali e protezioni: i controlli dell'IDE non sono visibili agli agent | Ogni controllo vincolante risiede nella configurazione del repository e in CI; l'IDE (Rider/WebStorm, VS Code, Visual Studio) è solo uno strumento di review dell'utente e usa la stessa configurazione ESLint |
 | Punti ciechi correlati: agentP e agentMR basati sullo stesso modello tendono ad accettare gli stessi errori | Controlli deterministici in CI (TypeScript strict, linter con regole del framework, test); checklist di review esplicita nel prompt di agentMR; modello diverso per la review; verifica umana del comportamento tramite preview channel |
 | Consumo concorrente | `concurrency` globale sugli agent (D7) |
 | Repo pubblico: chiunque può aprire issue o commentare, con possibile prompt injection e consumo della quota | Avviare gli agent solo per utenti con permesso di scrittura (verificare `author_association` o il comportamento di default della action); non trattare come istruzioni il testo di utenti esterni |
@@ -165,11 +170,11 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [ ] Configurare CODEOWNERS su `.github/` e `agents/`.
 - [ ] Abilitare sul progetto Firebase (piano Spark) Hosting, Auth (provider Google) e Firestore.
 - [ ] (Opzionale) Valutare un sito Hosting aggiuntivo con nome più pulito o un dominio personalizzato.
-- [ ] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict.
+- [x] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict (D26).
 - [ ] Configurare `angular-eslint` con regole contro pattern obsoleti e leak di subscription.
 - [ ] Predisporre una CI minima (build, lint, test, test delle security rules con Emulator Suite) prima che agentP scriva codice.
 - [ ] Configurare i preview channel di Firebase Hosting per le PR.
-- [ ] Configurare l'IDE JetBrains per usare la configurazione ESLint del progetto.
+- [ ] Configurare gli IDE (Rider/WebStorm, VS Code) per usare la configurazione ESLint del progetto.
 
 ### Fase 1 - Identità e strumenti locali
 - [ ] Creare 3 GitHub App (agentI, agentP, agentMR) con permessi minimi; nessun permesso `workflows`.
@@ -227,6 +232,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | Q17 | Metodo di autenticazione | Chiusa: Google (D19) |
 | Q7 | Ambiente di isolamento locale: WSL o devcontainer | Aperta |
 | Q8 | Valore iniziale del limite di iterazioni agentP <-> agentMR | Aperta |
+| Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite` |
 
 ---
 
@@ -255,13 +261,15 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Creato il repository `giammin/shelfmark`. |
 | 2026-10-21 | Istruzioni agent-agnostiche in `AGENTS.md` (D25). |
 | 2026-10-21 | Creato `CLAUDE.md` con il solo import `@AGENTS.md` (D25). |
+| 2026-10-21 | Branch `chore/initial-setup`: scheletro Angular 22 + Material + PWA (D26), fine riga LF (D27), `.gitignore` esteso (segreti, Firebase, Visual Studio, impostazioni locali di Claude Code). Build e test verdi. |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 non iniziata.
-- Prossimo passo: abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`, aggiungere questo documento al repository `giammin/shelfmark` (Fase 0), redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso sul branch `chore/initial-setup` (non ancora pushato né mergiato): `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`.
+- Prossimo passo: `angular-eslint` e CI minima sullo stesso setup; abilitare Hosting, Auth e Firestore sul progetto `shelfmark-bd1a8`; redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
+- Requisito ambiente: Node >= 24.15 (Angular CLI 22).
 - Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
 
 ---
