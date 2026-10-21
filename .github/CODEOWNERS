@@ -1,0 +1,5 @@
+# Agent instructions and CI configuration require human review (D6).
+/.github/ @giammin
+/agents/ @giammin
+/AGENTS.md @giammin
+/CLAUDE.md @giammin
