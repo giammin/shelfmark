@@ -159,7 +159,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 - [ ] Valutare una licenza separata (es. MIT o CC BY 4.0) per la cartella `agents/`.
 - [x] Creare il repository pubblico `shelfmark` (`git@github.com:giammin/shelfmark.git`, licenza AGPL-3.0, senza `.gitignore` iniziale).
 - [ ] Aggiungere al repository la struttura della sezione 2.4 e questo documento come `docs/working-doc.md`.
-- [ ] Creare `AGENTS.md` e `CLAUDE.md` con il solo import `@AGENTS.md`.
+- [x] Creare `AGENTS.md` e `CLAUDE.md` con il solo import `@AGENTS.md`.
 - [ ] Creare le label della sezione 2.3.
 - [ ] Configurare ruleset/branch protection su `main`: 2 approve, CI verde, review CODEOWNERS.
 - [ ] Configurare CODEOWNERS su `.github/` e `agents/`.
@@ -254,6 +254,7 @@ CLAUDE.md                 # contiene solo l'import @AGENTS.md
 | 2026-10-21 | Scelta la licenza AGPL-3.0 (D24). |
 | 2026-10-21 | Creato il repository `giammin/shelfmark`. |
 | 2026-10-21 | Istruzioni agent-agnostiche in `AGENTS.md` (D25). |
+| 2026-10-21 | Creato `CLAUDE.md` con il solo import `@AGENTS.md` (D25). |
 
 ---
 
