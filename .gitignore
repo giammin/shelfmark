@@ -8,11 +8,25 @@
 
 # Node
 /node_modules
-npm-debug.log
+npm-debug.log*
 yarn-error.log
+
+# Firebase
+.firebase/
+*-debug.log
+
+# Secrets
+.env
+.env.*
+*.pem
+
+# Claude Code (personal settings)
+.claude/settings.local.json
+CLAUDE.local.md
 
 # IDEs and editors
 .idea/
+.vs/
 .project
 .classpath
 .c9/
