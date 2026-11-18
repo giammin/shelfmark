@@ -1,7 +1,7 @@
 # Agent Dev Team (shelfmark) - Working Document
 
 > Reference document for the project. If it disagrees with a conversation, this document prevails.
-> Last updated: 2026-10-21
+> Last updated: 2026-11-18
 
 ---
 
@@ -27,33 +27,35 @@ Constraints:
 
 | Agent | Role | Mode | Trigger (CI phase) |
 |---|---|---|---|
-| agentA | Technical architect: turns the functional specifications into the technical design (modules, UI components, data model, contracts, implementation order) in `docs/design/`; answers technical clarification requests | Interactive, local (decisions reviewed by the human) | None initially; later, changes to `docs/specs/` |
-| agentI | Issue planner: creates and updates issues from specifications and design (granularity, dependencies, order); answers functional clarification requests by citing the specifications | Headless | Push to `docs/specs/` or `docs/design/`; `needs-clarification` label |
-| agentP | Developer: implements an issue, asks for clarification in comments, opens the PR | Headless | `ready` label; answer to a clarification request; `changes-requested` label |
-| agentMR | Reviewer: checks the PR, interacts with agentP, approves when the PR is ready | Headless | PR opened or updated |
+| agentA | Technical architect: turns the functional specifications into the technical design (modules, UI components, data model, contracts, implementation order) in `docs/design/`; updates the design when a clarification escalates to the human | Interactive only, run by the human; changes go through the human's PRs; no GitHub App (D37) | None |
+| agentI | Issue planner: creates and updates issues from specifications and design (granularity, dependencies, order); answers functional and technical clarification requests by citing requirement IDs or design sections (D37, D39) | Interactive (local phase), headless later | Manual; later: `needs-clarification` label, changes to `docs/specs/` or `docs/design/` |
+| agentP | Developer: implements an issue, asks for clarification in comments, opens the PR | Interactive (local phase), headless later | Manual; later: `ready` label, answer to a clarification request, review requesting changes |
+| agentMR | Reviewer: checks the PR against the issue, the requirements and the CI results, then submits a GitHub review (approve or request changes) (D38) | Interactive (local phase), headless later | Manual; later: green CI on the PR |
 | Human | Functional specifications, review of agentA's design, corrective issues, decisions not covered by specifications and design, second approval | - | `needs-human` label |
 
 ### 2.2 Flow
 
-1. The human writes the functional specifications in `docs/specs/`.
+1. The human writes the functional specifications in `docs/specs/`, giving each requirement a stable ID (D39).
 2. agentA, in an interactive session with the human, produces the technical design in `docs/design/` (architecture, modules, UI components, data model, decisions as ADRs).
-3. agentI generates issues from specifications and design, each with links to the relevant sections, verifiable acceptance criteria and dependencies.
+3. agentI generates issues from specifications and design, each citing the requirement IDs it covers, with links to the relevant design sections, verifiable acceptance criteria and dependencies.
 4. agentP picks up a `ready` issue and works on a dedicated branch.
 5. If clarification is needed, agentP comments on the issue and sets `needs-clarification`.
-   - Functional questions: agentI answers by citing the specifications.
-   - Technical questions: agentA answers by citing the design.
-   - If neither specifications nor design cover the case, `needs-human` is set. The human decision must then be recorded in the reference document.
+   - agentI answers functional and technical questions by citing requirement IDs or design sections (D37).
+   - If neither specifications nor design cover the case, `needs-human` is set. The human decides and updates the specifications, or the design with agentA in an interactive session; the decision is also recorded in this document.
 6. agentP opens the PR.
-7. agentMR reviews the PR based on the diff and on the CI build and test results, and iterates with agentP until approval or the iteration limit.
+7. Once CI is green, agentMR reviews the PR (diff, issue, requirements, CI results) and submits a GitHub review: approve or request changes (D38). agentP addresses the requested changes; the loop stops at approval or at the iteration limit (D8).
 8. The human gives the second approval. Merging is allowed only with 2 approvals and green CI.
+9. Every agent run ends with a run summary comment on the issue or PR (D36).
 
-### 2.3 State machine (labels)
+### 2.3 State machine
+
+Issues use labels; pull requests use native GitHub review states (D38).
 
 ```
 issue:  ready -> in-progress -> [needs-clarification | needs-human] -> in-review
                      |
                      +-> agent-failed (automatic retry, then needs-human)
-PR:     in-review -> changes-requested -> in-review -> approved-by-agent -> merged
+PR:     open (CI) -> agentMR review: changes requested -> agentP update -> ... -> approved -> human approval -> merged
 ```
 
 ### 2.4 Repository structure
@@ -96,14 +98,14 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | # | Decision | Rationale | Rejected alternatives | Assumptions |
 |---|---|---|---|---|
 | D1 | Platform: GitHub | Official integration `anthropics/claude-code-action@v1`; mandatory approvals available | GitLab Free: excluded (Q1 closed) | - |
-| D2 | Claude authentication: OAuth token of the Pro/Max subscription (`claude setup-token`) | Fixed cost | Pay-per-use API key (possible later with a spending limit) | Runs consume the 5-hour/weekly windows shared with personal use |
+| D2 | Claude authentication: the Pro/Max subscription for interactive local runs started by the human | Fixed cost | Pay-per-use API key (planned for automated runs, see Phase 4) | Runs consume the 5-hour/weekly windows shared with personal use. The Claude Code legal terms describe subscription OAuth as intended for ordinary individual use and recommend API keys for products and services: unattended CI runs should use an API key with a spending limit (https://code.claude.com/docs/en/legal-and-compliance.md) |
 | D3 | One GitHub App per agent | The author of a PR cannot approve it; events generated with `GITHUB_TOKEN` do not trigger other workflows | Single identity; bot account | - |
 | D4 | Separate agentA and agentI | agentA decides the structure (modules, components, contracts); agentI decides the units of work (issues, granularity, order) | Single agent | They share `AGENTS.md` |
-| D5 | Clarifications answered only from specifications (functional, agentI) or design (technical, agentA), otherwise escalated to the human | Prevent agents from making design decisions | Free-form answers by agentI/agentA | - |
+| D5 | Clarifications answered only from specifications or design, otherwise escalated to the human | Prevent agents from making design decisions | Free-form answers by agentI/agentA | Who answers: D37 |
 | D6 | Prompts and workflows protected by CODEOWNERS (`.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`); the Apps do not have the `workflows` permission | Prevent agents from modifying their own instructions | No protection | - |
 | D7 | One issue at a time (global concurrency) | Avoid conflicts between PRs and usage spikes | Parallelism | To be reassessed after stabilization |
 | D8 | Iteration limit for agentP <-> agentMR, then `needs-human` | Avoid non-converging loops | No limit | Initial value N to be defined (see Q8) |
-| D9 | Local phase before Actions | More controlled testing | Start directly in CI | See section 4 |
+| D9 | Local phase before Actions | More controlled testing | Start directly in CI | See section 4 and D40 |
 | D10 | Locally, interaction still happens on GitHub (issues, PRs, labels via `gh`) | Migrating to Actions must change only the trigger | Simulation with local files | - |
 | D11 | First agent migrated to CI: agentMR | Simple trigger, does not write code | agentP first | - |
 | D12 | Public GitHub repository | Free Actions minutes on GitHub-hosted runners; rulesets and branch protection available on the Free plan | Private repository (limited minutes, protections to be verified) | Agents triggered only by users with write permission (section 5); no self-hosted runners |
@@ -119,7 +121,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | D22 | Beta with minimal scope: sign-in, locations, single-book entry, book list; batch entry in the backlog | Start the agent system as early as possible; later features become a test of specification changes | Beta with batch entry | - |
 | D23 | Repository and app name: `shelfmark` | Library term for the mark that identifies a book's shelf location; suitable for a public repository | bookwhere, scaffale, dovelho, libroteca | Firebase project created with id `shelfmark-bd1a8` (id `shelfmark` not available); default URL `shelfmark-bd1a8.web.app` |
 | D24 | AGPL-3.0 license | Anyone publishing a modified version online must release its source | MIT, Apache-2.0, no license | The license also covers the prompts in `agents/` unless that folder gets a separate license |
-| D25 | Agent-agnostic instructions in `AGENTS.md`; `CLAUDE.md` contains only the `@AGENTS.md` import; `agents/shared.md` merged into `AGENTS.md` | Tool independence; a single conventions file | `CLAUDE.md` only; symlink (requires permissions on Windows); relying on Claude Code reading `AGENTS.md` natively (depends on the version and on other `CLAUDE.md` files) | The CI action runs Claude Code and therefore reads `CLAUDE.md` |
+| D25 | Agent-agnostic instructions in `AGENTS.md`; `CLAUDE.md` contains only the `@AGENTS.md` import; `agents/shared.md` merged into `AGENTS.md` | Tool independence; a single conventions file | `CLAUDE.md` only; symlink (requires permissions on Windows); relying on Claude Code reading `AGENTS.md` natively (depends on the version and on other `CLAUDE.md` files) | The CI action runs Claude Code and therefore reads `CLAUDE.md`. Claude Code reads `AGENTS.md` natively only when no `CLAUDE.md` exists, so the import remains required (https://code.claude.com/docs/en/memory.md) |
 | D26 | Angular 22 skeleton at the repository root: standalone, zoneless, strict TypeScript, SCSS, Vitest, no SSR; Angular Material (default azure/blue theme) and `@angular/pwa`; `--ai-config=none` | Single app: simpler CI and `firebase.json`; zoneless consistent with signals (D20); static PWA on Hosting | Workspace in a subfolder (`web/`); SSR; Karma | Requires Node >= 24.15 (Angular CLI 22 requirement); theme and fonts (currently from Google Fonts, not available offline) to be revisited in the design |
 | D27 | LF line endings for all text files (`.gitattributes` with `eol=lf`, `.editorconfig`), CRLF only for `.cmd`/`.bat` | Agents run on Linux runners; the human works on Windows with several IDEs (Rider, WebStorm, VS Code, Visual Studio) | Per-machine `core.autocrlf` | - |
 | D28 | ESLint: `angular-eslint` presets (ts, template, accessibility) with typed linting; additional rules `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) and `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` with alias `takeUntilDestroyed` on Component, Directive, Injectable) | Deterministic checks against obsolete patterns and subscription leaks ("correlated blind spots" risk) | Recommended preset only; `prefer-async-pipe` (too restrictive) | In Angular 22 OnPush is the default: `prefer-on-push-component-change-detection` reports only `ChangeDetectionStrategy.Eager`. Rules verified with a probe component |
@@ -130,17 +132,25 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | D33 | PR titles in Conventional Commits format (types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), starting with PR #2 | With squash (D31) the title becomes the commit on `main`: basis for an automatic changelog (Q19) | Free-form titles | Convention recorded in `AGENTS.md`; intermediate commits on branches remain free-form |
 | D34 | Firebase setup: `firebase-tools` as a devDependency; Firestore `(default)` in `europe-west8` (standard edition), created with `firebase deploy --only firestore`; initial rules deny everything; rules tests with `@firebase/rules-unit-testing` and Vitest in the emulator with the `demo-shelfmark` project (no secrets in CI), run in the `build` job; web app registered (App ID `1:1015280431392:web:d86325b6cd0b021707a745`, config via `firebase apps:sdkconfig WEB <App ID>`); Hosting on `dist/shelfmark/browser` with SPA rewrite and `no-cache` for `index.html`, routes, service worker and manifest | Same CLI version locally and in CI; database closed until the design defines the rules; cache headers required for PWA updates | Global `firebase-tools`; `eur3`, `europe-west1` | AngularFire 20.1.1 supports only Angular 20: how the app integrates Firebase (plain `firebase` SDK or AngularFire) is a design decision for agentA; `firebase` is currently a devDependency used by the tests |
 | D35 | Hosting preview channel for each PR (repository branches only, not forks) and automatic live deploy on every push to `main`; service account and `FIREBASE_SERVICE_ACCOUNT_SHELFMARK_BD1A8` secret created by `firebase init hosting:github`; generated workflows adapted: Node 24, `checkout@v7`, minimal permissions, `timeout-minutes`, `concurrency`, `action-hosting-deploy` pinned to a commit (v0.11.0); preview split into a `preview-build` job (no secrets) and a `preview-deploy` job (no PR code) | Visual check of the behavior for each PR ("correlated blind spots" risk); `main` always matches the site, since only code with green CI reaches it (D32) | Manual live deploy; action pinned to the moving `@v0` tag | Agent skills offered by the CLI not installed (to be evaluated separately) |
+| D36 | Every agent run ends with a run summary comment on the issue or PR it worked on: agent, model, prompt version (commit), duration, turns, input/output tokens, estimated cost, outcome. Raw run data stays local, not in the repository | Measure the experiment (cost and effort per issue, iterations, human interventions) to support Phase 5 decisions; comments are durable and can be collected with `gh` | Logs committed to the repository (noise, merge conflicts); no measurement | Headless runs: `--output-format json` provides these values. Interactive runs: mechanism to be verified (Q23). With the subscription the cost is an estimate of the API price, not an actual charge |
+| D37 | agentI answers all clarification requests, functional and technical, citing requirement IDs or design sections; otherwise `needs-human`. agentA is interactive only: the human runs it to update the design, and its changes go through the human's PRs; it has no GitHub App | agentA had no headless trigger and no App, so technical clarifications had no responder; answering from documents does not require the architect, only the documents | agentA headless with a fourth App; technical questions always to the human | Supersedes the agentA/agentI split of clarifications in D5 |
+| D38 | Pull request states use native GitHub reviews: agentMR submits "Approve" or "Request changes" with its App; the PR labels `changes-requested` and `approved-by-agent` are dropped (`in-review` stays for issues) | Reviews cannot drift out of sync like labels; a review triggers `pull_request_review` for agentP; an App approval may count toward the required approvals (Q22) | PR state labels | Labels to remove from GitHub: see Phase 0 |
+| D39 | Each functional requirement has a stable ID (e.g. `LOC-003`); issues, acceptance criteria, clarifications and reviews cite IDs; agentI writes a marker with the covered IDs in each issue so that re-planning updates existing issues instead of duplicating them | References survive edits to headings and wording; makes re-planning idempotent and coverage checkable | Links to headings only | ID format defined with the first specifications |
+| D40 | Local phase as interactive Claude Code sessions started and watched by the human: each session loads the agent prompt (`--append-system-prompt-file agents/<agent>.md`) and uses the agent's GitHub App token; the human observes, intervenes and refines the prompts. Headless runs only to confirm that a tuned prompt works unattended; automation (Phase 4) only once roles and workflow are stable | The goal of the first phase is to learn how to organize the agents and write their prompts, which requires seeing what they do | Headless local runs from the start; direct move to Actions with `workflow_dispatch` (reconsidered for Phase 4) | Flag names verified in the CLI reference (Q4) |
 
 ---
 
 ## 4. Local phase principles
 
+- Goal of the local phase: learn how to organize the agents and how to write their prompts. Automation comes only once roles and workflow are stable (D40).
 - Each agent is defined by its prompt, inputs, tools/permissions and interaction via GitHub; locally, only who starts the run changes.
-- Headless execution: `claude -p` with `--append-system-prompt`, `--allowedTools`, `--max-turns`. The same flags are passed to the action via `claude_args`. Verify the exact names with `claude --help`.
+- Interactive execution by default: the human starts a Claude Code session with the agent prompt (`--append-system-prompt-file agents/<agent>.md`), watches it work, intervenes and refines the prompt. Interventions are noted, since each one points to a prompt or document gap.
+- Headless execution (`claude -p` with `--append-system-prompt-file`, `--allowedTools`, `--max-turns`, `--max-budget-usd`, `--output-format json`) only to confirm that a tuned prompt works unattended. The same flags are passed to the action via `claude_args`.
 - Each agent uses its own token (`GH_TOKEN`) generated by its own GitHub App, never the personal token.
 - Each run works in a `git worktree` or a clean clone, without reusing sessions or context, to simulate the ephemeral runner.
 - Isolation: run in WSL or a devcontainer containing only the clone and the agent's token; no permission bypass.
-- Orchestration initially manual (`run-agent` with agent and issue/PR number); automatic polling only if the local phase drags on.
+- Orchestration manual (`run-agent` with agent and issue/PR number). Every run ends with a run summary (D36).
+- Prompt changes are versioned in `agents/` through PRs, so each run summary can name the prompt version it used.
 
 ---
 
@@ -161,7 +171,10 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | Concurrent consumption | Global `concurrency` on agents (D7) |
 | Firebase service account secret exposed to the code of PRs from repository branches, including agents' PRs (`npm ci` and the build run PR code) | Preview workflow in two jobs: `preview-build` without secrets produces an artifact; `preview-deploy` receives the secret, uses `firebase.json` from the base branch (it can contain `predeploy` commands) and runs no PR code; deploy action pinned to a commit; agents cannot modify workflows (D6); service account roles to be verified (Q20). An intermediate `dev` branch does not mitigate this: `pull_request` triggers whatever the target branch |
 | Agent code merged and deployed live automatically (D35) while the ruleset requires 0 approvals (D32) | Raise the ruleset to 2 approvals before giving the agents' GitHub Apps write permission |
-| Public repository: anyone can open issues or comment, with possible prompt injection and quota consumption | Trigger agents only for users with write permission (verify `author_association` or the action's default behavior); never treat text from external users as instructions |
+| Public repository: anyone can open issues or comment, with possible prompt injection and quota consumption | Trigger agents only for users with write permission (`claude-code-action` checks write access by default on issue, PR, comment and review events, not on `workflow_dispatch` or `schedule`); never treat text from external users as instructions |
+| Agent-to-agent events are created by GitHub Apps, and `claude-code-action` rejects bot actors unless they are listed in `allowed_bots` | List the agents' Apps by name in `allowed_bots`; never use `'*'`, which on a public repository lets any GitHub App trigger the agents |
+| Subscription OAuth used for unattended automated runs, outside the "ordinary individual use" described by the Claude Code legal terms | Subscription only for interactive runs started by the human (D2); API key with a spending limit for Actions (Phase 4); make sure `ANTHROPIC_API_KEY` and the OAuth token are not both set, since the API key takes precedence |
+| Agents re-triggering themselves (an agent comment or label starting another run of the same agent) | Filter workflow triggers by actor; `concurrency` per issue/PR in addition to D7 |
 
 ---
 
@@ -169,11 +182,11 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 
 ### Phase 0 - Preparation
 - [x] Exclude GitLab Free (Q1).
-- [ ] Resolve Q3-Q4.
+- [ ] Resolve Q3 (Q4 closed).
 - [x] Decide public or private repository (Q5): public.
 - [x] Define the app idea: personal book catalog with physical locations.
 - [x] Choose the stack (D13, D20).
-- [ ] Write the beta functional specifications in `docs/specs/`.
+- [ ] Write the beta functional specifications in `docs/specs/`, with stable requirement IDs (D39).
 - [ ] Produce the beta technical design with agentA in `docs/design/`.
 - [x] Create the Firebase project `shelfmark` (id `shelfmark-bd1a8`).
 - [ ] Evaluate a separate license (e.g. MIT or CC BY 4.0) for the `agents/` folder.
@@ -181,6 +194,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 - [ ] Add the structure of section 2.4 to the repository (this document is already in `docs/working-doc.md`).
 - [x] Create `AGENTS.md` and `CLAUDE.md` with only the `@AGENTS.md` import.
 - [x] Create the labels of section 2.3.
+- [ ] Remove the PR state labels `changes-requested` and `approved-by-agent` from GitHub (D38).
 - [x] Translate this document into English (D30).
 - [x] Configure the initial ruleset on `main`: mandatory PR, green CI, squash only (D31, D32).
 - [x] Configure CODEOWNERS on `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
@@ -200,23 +214,35 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 - [ ] Install the Apps on the repository.
 - [ ] Write `scripts/get-agent-token` (JWT signed with the private key, installation token valid for 1 hour).
 - [ ] Prepare the isolated environment (WSL or devcontainer) with `claude` and `gh`.
-- [ ] Write `scripts/run-agent` (parameters: agent, issue/PR number; clean worktree; agent token; headless flags).
+- [ ] Write `scripts/run-agent` (parameters: agent, issue/PR number, interactive or headless; clean worktree; agent token; agent prompt; run summary comment, D36).
+- [ ] Verify how to collect the run summary values in interactive sessions (Q23).
 
 ### Phase 2 - Prompts
 - [ ] `AGENTS.md`: pointer to the working document, conventions, git workflow, comment format, label usage; Angular conventions (standalone components, signals, `@if`/`@for`, no `NgModule`).
-- [ ] `agents/issue-planner.md`: issue generation with links to the specifications and acceptance criteria; rule D5.
-- [ ] `agents/developer.md`: picking up issues, clarifications, idempotency, intermediate commits, opening the PR.
-- [ ] `agents/reviewer.md`: explicit review checklist (obsolete Angular patterns, unclosed subscriptions, use of signals/computed, security rules changes without tests), use of CI results, iteration limit, approval.
-- [ ] Choose a different model for agentMR than for agentP.
-- [ ] `agents/architect.md`: technical design from the specifications and answers to technical clarifications (D21).
+- [ ] `agents/issue-planner.md`: issue generation citing requirement IDs, with acceptance criteria and the covered-IDs marker (D39); answers to functional and technical clarifications from documents only (D5, D37).
+- [ ] `agents/developer.md`: picking up issues, clarifications, idempotency, intermediate commits, opening the PR, addressing review comments.
+- [ ] `agents/reviewer.md`: explicit review checklist (obsolete Angular patterns, unclosed subscriptions, use of signals/computed, security rules changes without tests), use of CI results, requirement coverage, GitHub review as outcome (D38), iteration limit.
+- [ ] Choose the models. Proposal: agentP and agentI on Sonnet 5.5 (many tool turns, lower cost per turn); agentMR on Opus 5.5 (a reviewer at least as capable as the developer, reading a diff costs fewer tokens); agentA on Opus 5.5.
+- [ ] `agents/architect.md`: technical design from the specifications, ADRs, design updates after escalations (D21, D37).
 
 ### Phase 3 - Manual local cycle
 - [ ] Run a full cycle on a small issue: agentI -> agentP -> agentMR -> human.
 - [ ] Test a clarification answered from the specifications and one escalated to `needs-human`.
 - [ ] Test an interruption mid-work (even simulated) and the resume.
-- [ ] Iterate on the prompts until the cycle converges without human intervention.
+- [ ] Iterate on the prompts until the cycle converges without human intervention, using the run summaries and the noted interventions (D36, D40).
+- [ ] Confirm each tuned prompt with a headless run before Phase 4.
 
 ### Phase 4 - Migration to Actions (one agent at a time)
+Prerequisites, from the plan review of 2026-11-18:
+- [ ] API key with a spending limit for automated runs (D2 legal note); no OAuth token and API key set together.
+- [ ] `allowed_bots` listing the agents' Apps by name, never `'*'`.
+- [ ] agentMR triggered by green CI (`workflow_run`); a CI failure goes back to agentP through a deterministic step with the failure log, without an LLM review.
+- [ ] Iteration limit (D8) and retry threshold counted by the workflow through the GitHub API, not by the prompts.
+- [ ] Actor filters and `concurrency` per issue/PR against self-triggering.
+- [ ] Run summaries from `--output-format json` (D36); `--max-turns`, `--max-budget-usd` and `timeout-minutes` on every run.
+- [ ] Evaluate `workflow_dispatch` as a manual first step in Actions, and auto-merge once both approvals are present.
+
+Steps:
 - [ ] agentMR: `agent-review.yml`, with `timeout-minutes`, `concurrency`, `--max-turns`.
 - [ ] Raise the `main` ruleset to 2 approvals with mandatory CODEOWNERS review (D32).
 - [ ] agentP: `agent-dev.yml`, with `if: failure()` handling and the `agent-failed` label.
@@ -237,8 +263,8 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 |---|---|---|
 | Q1 | GitLab Free as the platform | Closed: excluded, GitHub is used |
 | Q2 | On GitHub Free, are rulesets/branch protection enforced on private repositories? | Closed: not relevant, public repository (D12) |
-| Q3 | Exact behavior of `claude-code-action` when the usage limit is reached (expected: error and failed job; retries on short transient 429s) | To be verified by testing |
-| Q4 | Exact names and semantics of Claude Code's headless flags in the version in use | To be verified (`claude --help`) |
+| Q3 | Exact behavior of `claude-code-action` when the usage limit is reached | Partially answered: Claude Code retries transient errors up to 10 times and blocks further requests until the reset time when a plan limit is hit; in CI, `CLAUDE_CODE_RETRY_WATCHDOG` and its usage-limit wait cap control the waiting (https://code.claude.com/docs/en/errors.md). Not documented: the exit code or message of `-p` and the action on a plan limit. To be verified by testing |
+| Q4 | Exact names and semantics of Claude Code's headless flags in the version in use | Closed: `-p`, `--append-system-prompt[-file]`, `--system-prompt[-file]`, `--allowedTools`, `--disallowedTools`, `--max-turns` (no default limit), `--max-budget-usd` (print mode, client-side estimate), `--model`, `--permission-mode`, `--output-format`, `--mcp-config`, `--settings` (https://code.claude.com/docs/en/cli-reference.md) |
 | Q5 | Public or private repository | Closed: public (D12) |
 | Q6 | App idea and stack | Closed: see D13 and section 10 |
 | Q7 | Local isolation environment: WSL or devcontainer | Open |
@@ -256,6 +282,8 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | Q19 | Automatic changelog from squash commits (PR titles); Conventional Commits in PR titles adopted (D33); the tool (e.g. release-please) and an optional PR title check in CI remain to be chosen | Open: to be discussed later |
 | Q20 | Actual roles of the service account created by `firebase init hosting:github`; does Google sign-in work on preview channel domains, or must they be added to the Auth authorized domains? | To be verified (IAM console; first sign-in test on a preview) |
 | Q21 | Language(s) of the app's user interface: the default place name is drafted in Italian ("La biblioteca di {NOME}"), while `index.html` declares `lang="en"` | Open: to be decided in the specifications |
+| Q22 | Do approvals submitted by a GitHub App (agentMR) count toward the ruleset's required approvals? | To be verified when the Apps exist |
+| Q23 | How to collect duration, turns, tokens and estimated cost of an interactive Claude Code session for the run summary (D36): e.g. a session-end hook reading the transcript, or the `/cost` output | To be verified in Phase 1 |
 
 ---
 
@@ -292,13 +320,15 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | 2026-10-21 | PR #2 merged. Firestore created in `europe-west8` with deny-all rules, web app registered, first deploy to `shelfmark-bd1a8.web.app` with verified cache headers, rules tests in CI (D34). |
 | 2026-10-21 | PR #3 merged; Google provider enabled in Auth. Preview channels for PRs and live deploy on merge (D35). |
 | 2026-10-21 | PR #4 merged; first live deploy from the workflow verified. This document translated into English (D30); Q21 added. |
+| 2026-11-18 | Agent plan reviewed against the current Claude Code and `claude-code-action` documentation. Run summaries (D36); clarifications answered by agentI, agentA interactive only (D37); native PR reviews (D38); requirement IDs (D39); interactive local phase (D40). Phase 4 prerequisites, new risks, Q22-Q23 added; Q4 closed, Q3 partially answered. |
 
 ---
 
 ## 9. Handoff
 
 - Status: platform, stack and scope decisions closed; Phase 0 in progress. On `main`: `CLAUDE.md`, Angular skeleton, line endings, `.gitignore`, ESLint, CI with rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels, initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35).
-- Next step: write the beta functional specifications from section 10.1 (deciding Q21), then the design with agentA.
+- Next step: write the beta functional specifications from section 10.1 with stable requirement IDs (D39), deciding Q21; then the design with agentA. In parallel: Phase 1 (GitHub Apps, `run-agent` with run summaries, Q23).
+- Working mode for the first phases: agents run interactively and are watched by the human to tune organization and prompts (D40); automation only in Phase 4, after its prerequisites.
 - Environment requirements: Node >= 24.15 (Angular CLI 22); `gh` installed and authenticated with the personal account (agents will use their GitHub App tokens, section 4); Firebase CLI (`npx firebase`) authenticated with the user's private Google account: the machine's gcloud credentials belong to a different account and must not be used for this project.
 - Notes for whoever resumes: read sections 3 and 4 before any activity; assumptions marked "To be verified" must not be taken for granted.
 
