@@ -1,359 +1,361 @@
-# Agent Dev Team (shelfmark) - Documento di lavoro
+# Agent Dev Team (shelfmark) - Working Document
 
-> Documento di riferimento del progetto. In caso di discrepanza con le conversazioni, questo documento prevale.
-> Ultimo aggiornamento: 2026-10-21
+> Reference document for the project. If it disagrees with a conversation, this document prevails.
+> Last updated: 2026-10-21
 
 ---
 
 ## 1. Goal
 
-Realizzare un team di sviluppo composto da agent AI che sviluppa una semplice applicazione (catalogo personale di libri con collocazione fisica) con intervento umano limitato a:
+Build a development team of AI agents that develops a simple application (a personal book catalog with physical locations), with human involvement limited to:
 
-- redazione di requirements e specifiche (con il supporto di un agent architect);
-- creazione di issue per bug o cambi di direzione;
-- approvazione finale delle merge request (inizialmente obbligatoria).
+- writing requirements and specifications (supported by an architect agent);
+- creating issues for bugs or changes of direction;
+- final approval of pull requests (initially mandatory).
 
-Vincoli:
+Constraints:
 
-- side project sperimentale, senza scadenze;
-- costi contenuti, senza rinunciare a funzionalità;
-- le configurazioni degli agent (prompt) devono far parte del repository dell'applicazione.
+- experimental side project, no deadlines;
+- low costs, without giving up functionality;
+- agent configurations (prompts) must be part of the application repository.
 
 ---
 
-## 2. Architettura
+## 2. Architecture
 
-### 2.1 Ruoli
+### 2.1 Roles
 
-| Agent | Ruolo | Modalità | Trigger (fase CI) |
+| Agent | Role | Mode | Trigger (CI phase) |
 |---|---|---|---|
-| agentA | Architect tecnico: dalle specifiche funzionali produce il design realizzativo (moduli, componenti UI, modello dati, contratti, ordine di implementazione) in `docs/design/`; risponde ai chiarimenti tecnici | Interattivo, locale (decisioni riviste dall'umano) | Nessuno inizialmente; in futuro modifiche a `docs/specs/` |
-| agentI | Issue planner: crea e aggiorna le issue a partire da specifiche e design (granularità, dipendenze, ordine); risponde ai chiarimenti funzionali citando le specifiche | Headless | Push su `docs/specs/` o `docs/design/`; label `needs-clarification` |
-| agentP | Developer: implementa un'issue, chiede chiarimenti nei commenti, apre la PR | Headless | Label `ready`; risposta a un chiarimento; label `changes-requested` |
-| agentMR | Reviewer: verifica la PR, interagisce con agentP, approva quando la PR è pronta | Headless | PR aperta o aggiornata |
-| Umano | Specifiche funzionali, revisione del design di agentA, issue correttive, decisioni non coperte da specifiche e design, secondo approve | - | Label `needs-human` |
+| agentA | Technical architect: turns the functional specifications into the technical design (modules, UI components, data model, contracts, implementation order) in `docs/design/`; answers technical clarification requests | Interactive, local (decisions reviewed by the human) | None initially; later, changes to `docs/specs/` |
+| agentI | Issue planner: creates and updates issues from specifications and design (granularity, dependencies, order); answers functional clarification requests by citing the specifications | Headless | Push to `docs/specs/` or `docs/design/`; `needs-clarification` label |
+| agentP | Developer: implements an issue, asks for clarification in comments, opens the PR | Headless | `ready` label; answer to a clarification request; `changes-requested` label |
+| agentMR | Reviewer: checks the PR, interacts with agentP, approves when the PR is ready | Headless | PR opened or updated |
+| Human | Functional specifications, review of agentA's design, corrective issues, decisions not covered by specifications and design, second approval | - | `needs-human` label |
 
-### 2.2 Flusso
+### 2.2 Flow
 
-1. L'umano redige le specifiche funzionali in `docs/specs/`.
-2. agentA, in sessione interattiva con l'umano, produce il design realizzativo in `docs/design/` (architettura, moduli, componenti UI, modello dati, decisioni in forma di ADR).
-3. agentI genera le issue a partire da specifiche e design, ciascuna con link alle sezioni di riferimento, criteri di accettazione verificabili e dipendenze.
-4. agentP prende in carico un'issue `ready` e lavora su un branch dedicato.
-5. Se servono chiarimenti, agentP commenta sull'issue e imposta `needs-clarification`.
-   - Domande funzionali: agentI risponde citando le specifiche.
-   - Domande tecniche: agentA risponde citando il design.
-   - Se specifiche o design non coprono il caso, si imposta `needs-human`. La decisione umana va poi riportata nel documento di riferimento.
-6. agentP apre la PR.
-7. agentMR revisiona la PR sulla base del diff e dell'esito di build e test in CI, e itera con agentP fino all'approvazione o al limite di iterazioni.
-8. L'umano fornisce il secondo approve. Il merge è consentito solo con 2 approve e CI verde.
+1. The human writes the functional specifications in `docs/specs/`.
+2. agentA, in an interactive session with the human, produces the technical design in `docs/design/` (architecture, modules, UI components, data model, decisions as ADRs).
+3. agentI generates issues from specifications and design, each with links to the relevant sections, verifiable acceptance criteria and dependencies.
+4. agentP picks up a `ready` issue and works on a dedicated branch.
+5. If clarification is needed, agentP comments on the issue and sets `needs-clarification`.
+   - Functional questions: agentI answers by citing the specifications.
+   - Technical questions: agentA answers by citing the design.
+   - If neither specifications nor design cover the case, `needs-human` is set. The human decision must then be recorded in the reference document.
+6. agentP opens the PR.
+7. agentMR reviews the PR based on the diff and on the CI build and test results, and iterates with agentP until approval or the iteration limit.
+8. The human gives the second approval. Merging is allowed only with 2 approvals and green CI.
 
-### 2.3 Macchina a stati (label)
+### 2.3 State machine (labels)
 
 ```
 issue:  ready -> in-progress -> [needs-clarification | needs-human] -> in-review
                      |
-                     +-> agent-failed (retry automatico, poi needs-human)
+                     +-> agent-failed (automatic retry, then needs-human)
 PR:     in-review -> changes-requested -> in-review -> approved-by-agent -> merged
 ```
 
-### 2.4 Struttura del repository
+### 2.4 Repository structure
 
 ```
 .github/
   workflows/
-    ci.yml                # PR e push su main: lint, build, test, test delle regole (D29, D34)
-    firebase-hosting-pull-request.yml  # PR -> preview channel di Hosting (D35)
-    firebase-hosting-merge.yml         # push su main -> deploy live (D35)
-    agent-issues.yml      # push su docs/specs -> agentI
-    agent-dev.yml         # label ready / commenti -> agentP
-    agent-review.yml      # PR aperta / aggiornata -> agentMR
-    agent-retry.yml       # schedule: ripresa issue agent-failed
-  CODEOWNERS              # .github/, agents/, AGENTS.md, CLAUDE.md -> review umana obbligatoria (D6, D32)
+    ci.yml                # PRs and pushes to main: lint, build, test, rules tests (D29, D34)
+    firebase-hosting-pull-request.yml  # PR -> Hosting preview channel (D35)
+    firebase-hosting-merge.yml         # push to main -> live deploy (D35)
+    agent-issues.yml      # push to docs/specs -> agentI
+    agent-dev.yml         # ready label / comments -> agentP
+    agent-review.yml      # PR opened / updated -> agentMR
+    agent-retry.yml       # schedule: resume agent-failed issues
+  CODEOWNERS              # .github/, agents/, AGENTS.md, CLAUDE.md -> mandatory human review (D6, D32)
 agents/
-  architect.md            # agentA (architect tecnico)
+  architect.md            # agentA (technical architect)
   issue-planner.md        # agentI
   developer.md            # agentP
   reviewer.md             # agentMR
 scripts/
-  get-agent-token.*       # generazione installation token GitHub App
-  run-agent.*             # avvio locale di un agent (fase locale)
+  get-agent-token.*       # GitHub App installation token generation
+  run-agent.*             # local agent launcher (local phase)
 docs/
-  specs/                  # specifiche funzionali (umano)
-  design/                 # design realizzativo e ADR (agentA, rivisto dall'umano)
-src/                      # applicazione Angular (workspace nella root, D26)
-public/                   # asset statici, manifest PWA, icone
-test/rules/               # test delle security rules (Emulator Suite, D34)
+  specs/                  # functional specifications (human)
+  design/                 # technical design and ADRs (agentA, reviewed by the human)
+src/                      # Angular application (workspace at the root, D26)
+public/                   # static assets, PWA manifest, icons
+test/rules/               # security rules tests (Emulator Suite, D34)
 angular.json, package.json, tsconfig*.json, ngsw-config.json
 firebase.json, .firebaserc, firestore.rules, firestore.indexes.json
-AGENTS.md                 # convenzioni comuni a tutti gli agent e rimando a docs/working-doc.md
-CLAUDE.md                 # contiene solo l'import @AGENTS.md
+AGENTS.md                 # conventions shared by all agents and pointer to docs/working-doc.md
+CLAUDE.md                 # contains only the @AGENTS.md import
 ```
 
 ---
 
 ## 3. Decision Log
 
-| # | Decisione | Motivazione | Alternative scartate | Assunzioni |
+| # | Decision | Rationale | Rejected alternatives | Assumptions |
 |---|---|---|---|---|
-| D1 | Piattaforma: GitHub | Integrazione ufficiale `anthropics/claude-code-action@v1`; approvazioni obbligatorie disponibili | GitLab Free: escluso (Q1 chiusa) | - |
-| D2 | Autenticazione Claude: token OAuth dell'abbonamento Pro/Max (`claude setup-token`) | Costo fisso | API key a consumo (possibile in futuro con spending limit) | I run consumano le finestre 5h/settimanale condivise con l'uso personale |
-| D3 | Una GitHub App per agent | L'autore di una PR non può approvarla; gli eventi generati con `GITHUB_TOKEN` non avviano altri workflow | Identità unica; account bot | - |
-| D4 | agentA e agentI separati | agentA decide la struttura (moduli, componenti, contratti); agentI decide le unità di lavoro (issue, granularità, ordine) | Agent unico | Condividono `AGENTS.md` |
-| D5 | Chiarimenti: risposta solo da specifiche (funzionali, agentI) o design (tecnici, agentA), altrimenti escalation all'umano | Evitare che gli agent prendano decisioni di design | Risposta libera di agentI/agentA | - |
-| D6 | Prompt e workflow protetti da CODEOWNERS (`.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`); le App non hanno il permesso `workflows` | Impedire agli agent di modificare le proprie istruzioni | Nessuna protezione | - |
-| D7 | Un'issue alla volta (concurrency globale) | Evitare conflitti tra PR e picchi di consumo | Parallelismo | Rivalutabile dopo la stabilizzazione |
-| D8 | Limite di iterazioni agentP <-> agentMR, poi `needs-human` | Evitare loop non convergenti | Nessun limite | Valore iniziale N da definire (vedi Q8) |
-| D9 | Fase locale prima delle Actions | Test più controllato | Partire direttamente in CI | Vedi sezione 4 |
-| D10 | In locale l'interazione avviene comunque su GitHub (issue, PR, label via `gh`) | La migrazione alle Actions deve cambiare solo il trigger | Simulazione con file locali | - |
-| D11 | Prima migrazione in CI: agentMR | Trigger semplice, non scrive codice | agentP per primo | - |
-| D13 | Stack: webapp PWA responsive su Firebase, piano gratuito Spark | Servizi integrati (Hosting, Auth, Firestore), costo nullo per traffico basso | Backend custom | Preferenza per soluzioni senza Cloud Functions; il passaggio al piano Blaze è accettato se necessario, con budget alert (gli alert non bloccano la spesa); lookup ISBN lato client |
-| D14 | Collocazioni con parent opzionale (gerarchia leggera) | Organizzazione per ambienti senza obbligo di specificare l'intera gerarchia | Collocazioni piatte; gerarchia obbligatoria a livelli fissi | Il numero di collocazioni per utente è contenuto (decine), quindi si possono caricare tutte lato client |
-| D15 | Condivisione per luogo: ogni luogo (es. casa, casa al mare) ha membri con ruolo (proprietario, scrittura, lettura); collocazioni e libri appartengono a un luogo | Il luogo è il confine dei permessi; le collocazioni restano leggere | Condivisione per singola collocazione o singolo libro; app mono-utente | Modello dati predisposto per la condivisione fin dall'inizio, per evitare migrazioni |
-| D16 | Ogni utente ha un luogo di default creato al primo accesso; il proprietario invita tramite link (valido per utenti registrati e non); all'apertura l'app mostra i luoghi accessibili | Flusso semplice, realizzabile senza Cloud Functions | Invito per email (richiede invio email lato server o collezione utenti con email) | Il link viene condiviso dall'utente con mezzi propri (es. Web Share API); il luogo di default ha id deterministico per evitare duplicati |
-| D17 | Rilascio in tre fasi: (1) beta con libri e collocazioni nel solo luogo di default; (2) luoghi multipli; (3) condivisione con inviti e ruoli. Modello dati predisposto da subito | Riduce il rischio iniziale; ogni fase è un test di evoluzione per gli agent | Rilascio unico; due fasi | - |
-| D18 | Piattaforma target iniziale: solo Android (Chrome) | Nessun dispositivo iOS disponibile per i test | Supporto iOS da subito | Scansione tramite API nativa `BarcodeDetector`, dietro un'astrazione che consenta di aggiungere un fallback per iOS in futuro |
-| D19 | Autenticazione: solo Google Sign-In; altri provider in futuro | Semplicità per l'utente su Android; nome utente disponibile per il luogo di default | Email/password da subito | Il codice di autenticazione non deve assumere un unico provider |
-| D20 | Frontend: Angular + Angular Material, TypeScript strict | Struttura imposta che limita la deriva tra sessioni degli agent; vicinanza al modello C# (DI, servizi, tipizzazione); esperienza pregressa dell'utente; componenti e supporto PWA ufficiali | React + Vite + MUI | Convenzioni moderne fissate in `AGENTS.md` (componenti standalone, signals, nuovo control flow `@if`/`@for`) e verificate da agentMR e dal linter |
-| D21 | agentA è un architect tecnico, non funzionale: le specifiche funzionali sono dell'umano | Le decisioni realizzative sono il campo di competenza dell'utente da verificare; le specifiche funzionali esprimono l'intento dell'utente | agentA come supporto alla redazione delle specifiche funzionali | Inizialmente in modalità interattiva con revisione umana delle decisioni |
-| D22 | Beta con scope minimo: login, collocazioni, inserimento singolo, elenco libri; inserimento in serie nel backlog | Avviare il sistema di agent il prima possibile; le funzionalità successive diventano un test di modifica delle specifiche | Beta con inserimento in serie | - |
-| D23 | Nome del repository e dell'app: `shelfmark` | Termine bibliotecario per la segnatura di collocazione; adatto a un repo pubblico | bookwhere, scaffale, dovelho, libroteca | Progetto Firebase creato con id `shelfmark-bd1a8` (id `shelfmark` non disponibile); URL di default `shelfmark-bd1a8.web.app` |
-| D24 | Licenza AGPL-3.0 | Chi pubblica online una versione modificata deve rilasciarne il sorgente | MIT, Apache-2.0, nessuna licenza | La licenza copre anche i prompt in `agents/` salvo licenza separata per quella cartella |
-| D25 | Istruzioni agent-agnostiche in `AGENTS.md`; `CLAUDE.md` contiene solo l'import `@AGENTS.md`; `agents/shared.md` assorbito in `AGENTS.md` | Indipendenza dallo strumento; un solo file di convenzioni | Solo `CLAUDE.md`; symlink (richiede permessi su Windows); affidarsi alla lettura nativa di `AGENTS.md` da parte di Claude Code (dipende dalla versione e dalla presenza di altri `CLAUDE.md`) | La action in CI esegue Claude Code e legge quindi `CLAUDE.md` |
-| D26 | Scheletro Angular 22 nella root del repo: standalone, zoneless, TypeScript strict, SCSS, Vitest, senza SSR; Angular Material (tema azure/blue di default) e `@angular/pwa`; `--ai-config=none` | Una sola app: CI e `firebase.json` più semplici; zoneless coerente con signals (D20); PWA statica su Hosting | Workspace in sottocartella (`web/`); SSR; Karma | Richiede Node >= 24.15 (requisito di Angular CLI 22); tema e font (oggi da Google Fonts, non disponibili offline) da rivedere nel design |
-| D27 | Fine riga LF per tutti i file di testo (`.gitattributes` con `eol=lf`, `.editorconfig`), CRLF solo per `.cmd`/`.bat` | Gli agent girano su runner Linux; l'umano lavora su Windows con IDE diversi (Rider, WebStorm, VS Code, Visual Studio) | `core.autocrlf` per macchina | - |
-| D28 | ESLint: preset `angular-eslint` (ts, template, accessibilità) con typed linting; regole aggiuntive `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) e `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` con alias `takeUntilDestroyed` su Component, Directive, Injectable) | Controlli deterministici contro pattern obsoleti e leak di subscription (rischio "punti ciechi correlati") | Solo preset raccomandato; `prefer-async-pipe` (troppo restrittivo) | In Angular 22 OnPush è il default: `prefer-on-push-component-change-detection` segnala solo `ChangeDetectionStrategy.Eager`. Regole verificate con un componente di prova |
-| D29 | CI minima `ci.yml`: lint, build, test su PR e push su `main`; Node 24, `permissions: contents: read`, `timeout-minutes: 15`, `concurrency` per ref | Base per la regola "CI verde" del merge e per agentMR | - | Test delle security rules aggiunti quando Firebase sarà configurato |
-| D30 | Lingua: inglese per tutto (codice, commenti, commit, branch, issue, PR, review, specifiche, design, prompt); unica eccezione temporanea questo documento, in italiano fino alla traduzione | Repo pubblico; coerenza tra artefatti prodotti da umano e agent | Italiano per specifiche e issue | Convenzione riportata in `AGENTS.md` |
-| D31 | Merge solo squash (titolo e descrizione della PR come messaggio di commit), merge commit e rebase disabilitati; eliminazione automatica del branch dopo il merge | Storia di `main` lineare, un commit per PR; nessun branch residuo degli agent | Merge commit (usato per la PR #1) | - |
-| D32 | Ruleset `main` iniziale: PR obbligatoria con 0 approve, check `build` obbligatorio, force push ed eliminazione bloccati, nessun bypass. 2 approve e review CODEOWNERS rimandati a quando agentMR sarà operativo | Con un solo collaboratore umano l'autore non può approvare la propria PR: 2 approve o review CODEOWNERS bloccherebbero ogni merge | 2 approve da subito; bypass per l'admin | Fino ad allora la protezione di prompt e workflow (D6) si basa sulla sola CI; il file `CODEOWNERS` è già presente |
-| D33 | Titoli delle PR in formato Conventional Commits (tipi: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), a partire dalla PR #2 | Con lo squash (D31) il titolo diventa il commit su `main`: base per un changelog automatico (Q19) | Titoli liberi | Convenzione riportata in `AGENTS.md`; i commit intermedi sui branch restano liberi |
-| D34 | Setup Firebase: `firebase-tools` come devDependency; Firestore `(default)` in `europe-west8` (edizione standard), creato con `firebase deploy --only firestore`; regole iniziali che negano tutto; test delle regole con `@firebase/rules-unit-testing` e Vitest nell'emulatore con progetto `demo-shelfmark` (nessun secret in CI), eseguiti nel job `build`; web app registrata (App ID `1:1015280431392:web:d86325b6cd0b021707a745`, config con `firebase apps:sdkconfig WEB <App ID>`); Hosting su `dist/shelfmark/browser` con rewrite SPA e `no-cache` per `index.html`, route, service worker e manifest | Versione della CLI uguale in locale e in CI; database chiuso finché il design non definisce le regole; header di cache necessari per gli aggiornamenti della PWA | `firebase-tools` globale; `eur3`, `europe-west1` | AngularFire 20.1.1 supporta solo Angular 20: l'integrazione nell'app (SDK `firebase` diretto o AngularFire) è una decisione di design per agentA; `firebase` è per ora una devDependency usata dai test |
-| D35 | Preview channel di Hosting per ogni PR (solo da branch del repo, non da fork) e deploy live automatico a ogni push su `main`; service account e secret `FIREBASE_SERVICE_ACCOUNT_SHELFMARK_BD1A8` creati da `firebase init hosting:github`; workflow generati e adattati: Node 24, `checkout@v7`, permessi minimi, `timeout-minutes`, `concurrency`, `action-hosting-deploy` fissata a commit (v0.11.0); preview separata in job `build` (senza secret) e `deploy` (senza codice della PR) | Verifica visiva del comportamento per ogni PR (rischio "punti ciechi correlati"); `main` sempre allineato al sito, dato che vi arriva solo codice con CI verde (D32) | Deploy live manuale; action con tag mobile `@v0` | Skill per agent proposte dalla CLI non installate (vanno valutate a parte) |
-| D12 | Repository GitHub pubblico | Minuti Actions gratuiti su runner GitHub-hosted; ruleset e branch protection disponibili sul piano Free | Repo privato (minuti limitati, protezioni da verificare) | Agent avviati solo da utenti con permesso di scrittura (sezione 5); niente self-hosted runner |
+| D1 | Platform: GitHub | Official integration `anthropics/claude-code-action@v1`; mandatory approvals available | GitLab Free: excluded (Q1 closed) | - |
+| D2 | Claude authentication: OAuth token of the Pro/Max subscription (`claude setup-token`) | Fixed cost | Pay-per-use API key (possible later with a spending limit) | Runs consume the 5-hour/weekly windows shared with personal use |
+| D3 | One GitHub App per agent | The author of a PR cannot approve it; events generated with `GITHUB_TOKEN` do not trigger other workflows | Single identity; bot account | - |
+| D4 | Separate agentA and agentI | agentA decides the structure (modules, components, contracts); agentI decides the units of work (issues, granularity, order) | Single agent | They share `AGENTS.md` |
+| D5 | Clarifications answered only from specifications (functional, agentI) or design (technical, agentA), otherwise escalated to the human | Prevent agents from making design decisions | Free-form answers by agentI/agentA | - |
+| D6 | Prompts and workflows protected by CODEOWNERS (`.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`); the Apps do not have the `workflows` permission | Prevent agents from modifying their own instructions | No protection | - |
+| D7 | One issue at a time (global concurrency) | Avoid conflicts between PRs and usage spikes | Parallelism | To be reassessed after stabilization |
+| D8 | Iteration limit for agentP <-> agentMR, then `needs-human` | Avoid non-converging loops | No limit | Initial value N to be defined (see Q8) |
+| D9 | Local phase before Actions | More controlled testing | Start directly in CI | See section 4 |
+| D10 | Locally, interaction still happens on GitHub (issues, PRs, labels via `gh`) | Migrating to Actions must change only the trigger | Simulation with local files | - |
+| D11 | First agent migrated to CI: agentMR | Simple trigger, does not write code | agentP first | - |
+| D12 | Public GitHub repository | Free Actions minutes on GitHub-hosted runners; rulesets and branch protection available on the Free plan | Private repository (limited minutes, protections to be verified) | Agents triggered only by users with write permission (section 5); no self-hosted runners |
+| D13 | Stack: responsive PWA web app on Firebase, free Spark plan | Integrated services (Hosting, Auth, Firestore), zero cost at low traffic | Custom backend | Preference for solutions without Cloud Functions; moving to the Blaze plan is accepted if needed, with budget alerts (alerts do not cap spending); client-side ISBN lookup |
+| D14 | Locations with an optional parent (lightweight hierarchy) | Organize by room without having to specify the whole hierarchy | Flat locations; mandatory fixed-level hierarchy | The number of locations per user is small (tens), so they can all be loaded client-side |
+| D15 | Sharing per place: each place (e.g. home, seaside house) has members with a role (owner, write, read); locations and books belong to a place | The place is the permission boundary; locations stay lightweight | Sharing per location or per book; single-user app | Data model ready for sharing from the start, to avoid migrations |
+| D16 | Each user gets a default place created at first sign-in; the owner invites via link (works for registered and unregistered users); at startup the app shows the accessible places | Simple flow, feasible without Cloud Functions | Email invitation (requires server-side email sending or a users collection with emails) | The user shares the link with their own means (e.g. Web Share API); the default place has a deterministic id to avoid duplicates |
+| D17 | Release in three phases: (1) beta with books and locations in the default place only; (2) multiple places; (3) sharing with invitations and roles. Data model ready from the start | Reduces initial risk; each phase is an evolution test for the agents | Single release; two phases | - |
+| D18 | Initial target platform: Android (Chrome) only | No iOS device available for testing | iOS support from the start | Scanning via the native `BarcodeDetector` API, behind an abstraction that allows adding an iOS fallback later |
+| D19 | Authentication: Google Sign-In only; other providers later | Simple for Android users; user name available for the default place | Email/password from the start | Authentication code must not assume a single provider |
+| D20 | Frontend: Angular + Angular Material, strict TypeScript | Enforced structure that limits drift between agent sessions; close to the C# model (DI, services, typing); the user's prior experience; official components and PWA support | React + Vite + MUI | Modern conventions set in `AGENTS.md` (standalone components, signals, new `@if`/`@for` control flow) and checked by agentMR and the linter |
+| D21 | agentA is a technical architect, not a functional one: functional specifications belong to the human | Technical decisions are the user's area of expertise to verify; functional specifications express the user's intent | agentA supporting the writing of functional specifications | Initially interactive, with human review of decisions |
+| D22 | Beta with minimal scope: sign-in, locations, single-book entry, book list; batch entry in the backlog | Start the agent system as early as possible; later features become a test of specification changes | Beta with batch entry | - |
+| D23 | Repository and app name: `shelfmark` | Library term for the mark that identifies a book's shelf location; suitable for a public repository | bookwhere, scaffale, dovelho, libroteca | Firebase project created with id `shelfmark-bd1a8` (id `shelfmark` not available); default URL `shelfmark-bd1a8.web.app` |
+| D24 | AGPL-3.0 license | Anyone publishing a modified version online must release its source | MIT, Apache-2.0, no license | The license also covers the prompts in `agents/` unless that folder gets a separate license |
+| D25 | Agent-agnostic instructions in `AGENTS.md`; `CLAUDE.md` contains only the `@AGENTS.md` import; `agents/shared.md` merged into `AGENTS.md` | Tool independence; a single conventions file | `CLAUDE.md` only; symlink (requires permissions on Windows); relying on Claude Code reading `AGENTS.md` natively (depends on the version and on other `CLAUDE.md` files) | The CI action runs Claude Code and therefore reads `CLAUDE.md` |
+| D26 | Angular 22 skeleton at the repository root: standalone, zoneless, strict TypeScript, SCSS, Vitest, no SSR; Angular Material (default azure/blue theme) and `@angular/pwa`; `--ai-config=none` | Single app: simpler CI and `firebase.json`; zoneless consistent with signals (D20); static PWA on Hosting | Workspace in a subfolder (`web/`); SSR; Karma | Requires Node >= 24.15 (Angular CLI 22 requirement); theme and fonts (currently from Google Fonts, not available offline) to be revisited in the design |
+| D27 | LF line endings for all text files (`.gitattributes` with `eol=lf`, `.editorconfig`), CRLF only for `.cmd`/`.bat` | Agents run on Linux runners; the human works on Windows with several IDEs (Rider, WebStorm, VS Code, Visual Studio) | Per-machine `core.autocrlf` | - |
+| D28 | ESLint: `angular-eslint` presets (ts, template, accessibility) with typed linting; additional rules `prefer-signals`, `prefer-output-emitter-ref`, `prefer-signal-model`, `no-uncalled-signals`, `no-implicit-take-until-destroyed`, `template/prefer-self-closing-tags`; `eslint-plugin-rxjs-x` (recommended) and `eslint-plugin-rxjs-angular-x` (`prefer-takeuntil` with alias `takeUntilDestroyed` on Component, Directive, Injectable) | Deterministic checks against obsolete patterns and subscription leaks ("correlated blind spots" risk) | Recommended preset only; `prefer-async-pipe` (too restrictive) | In Angular 22 OnPush is the default: `prefer-on-push-component-change-detection` reports only `ChangeDetectionStrategy.Eager`. Rules verified with a probe component |
+| D29 | Minimal CI `ci.yml`: lint, build, test on PRs and pushes to `main`; Node 24, `permissions: contents: read`, `timeout-minutes: 15`, `concurrency` per ref | Basis for the "green CI" merge rule and for agentMR | - | Security rules tests added once Firebase is configured (done in D34) |
+| D30 | Language: English for everything (code, comments, commits, branches, issues, PRs, reviews, specifications, design, prompts, this document) | Public repository; consistency between artifacts produced by the human and by agents | Italian for specifications and issues | Convention recorded in `AGENTS.md`; this document was translated from Italian on 2026-10-21 |
+| D31 | Squash merge only (PR title and description as the commit message), merge commits and rebase disabled; automatic branch deletion after merge | Linear `main` history, one commit per PR; no leftover agent branches | Merge commit (used for PR #1) | - |
+| D32 | Initial `main` ruleset: mandatory PR with 0 approvals, mandatory `build` check, force pushes and deletion blocked, no bypass. 2 approvals and CODEOWNERS review postponed until agentMR is operational | With a single human collaborator, the author cannot approve their own PR: 2 approvals or a CODEOWNERS review would block every merge | 2 approvals from the start; admin bypass | Until then, protection of prompts and workflows (D6) relies on CI alone; the `CODEOWNERS` file is already in place |
+| D33 | PR titles in Conventional Commits format (types: `feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`), starting with PR #2 | With squash (D31) the title becomes the commit on `main`: basis for an automatic changelog (Q19) | Free-form titles | Convention recorded in `AGENTS.md`; intermediate commits on branches remain free-form |
+| D34 | Firebase setup: `firebase-tools` as a devDependency; Firestore `(default)` in `europe-west8` (standard edition), created with `firebase deploy --only firestore`; initial rules deny everything; rules tests with `@firebase/rules-unit-testing` and Vitest in the emulator with the `demo-shelfmark` project (no secrets in CI), run in the `build` job; web app registered (App ID `1:1015280431392:web:d86325b6cd0b021707a745`, config via `firebase apps:sdkconfig WEB <App ID>`); Hosting on `dist/shelfmark/browser` with SPA rewrite and `no-cache` for `index.html`, routes, service worker and manifest | Same CLI version locally and in CI; database closed until the design defines the rules; cache headers required for PWA updates | Global `firebase-tools`; `eur3`, `europe-west1` | AngularFire 20.1.1 supports only Angular 20: how the app integrates Firebase (plain `firebase` SDK or AngularFire) is a design decision for agentA; `firebase` is currently a devDependency used by the tests |
+| D35 | Hosting preview channel for each PR (repository branches only, not forks) and automatic live deploy on every push to `main`; service account and `FIREBASE_SERVICE_ACCOUNT_SHELFMARK_BD1A8` secret created by `firebase init hosting:github`; generated workflows adapted: Node 24, `checkout@v7`, minimal permissions, `timeout-minutes`, `concurrency`, `action-hosting-deploy` pinned to a commit (v0.11.0); preview split into a `preview-build` job (no secrets) and a `preview-deploy` job (no PR code) | Visual check of the behavior for each PR ("correlated blind spots" risk); `main` always matches the site, since only code with green CI reaches it (D32) | Manual live deploy; action pinned to the moving `@v0` tag | Agent skills offered by the CLI not installed (to be evaluated separately) |
 
 ---
 
-## 4. Principi della fase locale
+## 4. Local phase principles
 
-- Ogni agent è definito da prompt, input, strumenti/permessi e interazione via GitHub; in locale cambia solo chi avvia il run.
-- Esecuzione headless: `claude -p` con `--append-system-prompt`, `--allowedTools`, `--max-turns`. Gli stessi flag si passano alla action tramite `claude_args`. Verificare i nomi esatti con `claude --help`.
-- Ogni agent usa il proprio token (`GH_TOKEN`) generato dalla propria GitHub App, mai il token personale.
-- Ogni run lavora in un `git worktree` o in un clone pulito, senza riutilizzare sessioni o contesto, per simulare il runner effimero.
-- Isolamento: esecuzione in WSL o devcontainer, contenente solo il clone e il token dell'agent; nessun bypass dei permessi.
-- Orchestrazione inizialmente manuale (`run-agent` con agent e numero di issue/PR); polling automatico solo se la fase locale si prolunga.
+- Each agent is defined by its prompt, inputs, tools/permissions and interaction via GitHub; locally, only who starts the run changes.
+- Headless execution: `claude -p` with `--append-system-prompt`, `--allowedTools`, `--max-turns`. The same flags are passed to the action via `claude_args`. Verify the exact names with `claude --help`.
+- Each agent uses its own token (`GH_TOKEN`) generated by its own GitHub App, never the personal token.
+- Each run works in a `git worktree` or a clean clone, without reusing sessions or context, to simulate the ephemeral runner.
+- Isolation: run in WSL or a devcontainer containing only the clone and the agent's token; no permission bypass.
+- Orchestration initially manual (`run-agent` with agent and issue/PR number); automatic polling only if the local phase drags on.
 
 ---
 
-## 5. Rischi e mitigazioni
+## 5. Risks and mitigations
 
-| Rischio | Mitigazione |
+| Risk | Mitigation |
 |---|---|
-| Rate limit dell'abbonamento durante un run: il run headless si interrompe e non attende il reset | Step `if: failure()` che imposta `agent-failed` e commenta; workflow `schedule` di ripresa con soglia di tentativi, poi `needs-human` |
-| Lavoro perso su runner effimero | Commit e push intermedi sul branch di lavoro |
-| Ripresa incoerente dopo un'interruzione | Prompt di agentP idempotente: se esistono branch o PR per l'issue, riprende invece di ricominciare |
-| Consumo di minuti di pipeline | `timeout-minutes` su ogni job (default GitHub: 360 min); `--max-turns`; repo pubblico per minuti gratuiti su runner GitHub-hosted |
-| Self-hosted runner su repo pubblico (esecuzione di codice da fork) | Usarlo solo su repo privato o bloccando i trigger da fork |
-| Agent che modificano prompt o workflow | CODEOWNERS e permessi ridotti delle App (D6) |
-| Decisioni inventate dagli agent | D5 |
-| Review superficiale | agentMR basato su build e test in CI; criteri di accettazione verificabili nelle issue |
-| Confusione tra strumenti personali e protezioni: i controlli dell'IDE non sono visibili agli agent | Ogni controllo vincolante risiede nella configurazione del repository e in CI; l'IDE (Rider/WebStorm, VS Code, Visual Studio) è solo uno strumento di review dell'utente e usa la stessa configurazione ESLint |
-| Punti ciechi correlati: agentP e agentMR basati sullo stesso modello tendono ad accettare gli stessi errori | Controlli deterministici in CI (TypeScript strict, linter con regole del framework, test); checklist di review esplicita nel prompt di agentMR; modello diverso per la review; verifica umana del comportamento tramite preview channel |
-| Consumo concorrente | `concurrency` globale sugli agent (D7) |
-| Secret del service account Firebase esposto al codice delle PR da branch del repo, comprese quelle degli agent (`npm ci` e build eseguono codice della PR) | Workflow di preview in due job: `build` senza secret produce un artifact; `deploy` riceve il secret, usa `firebase.json` del branch base (può contenere comandi `predeploy`) e non esegue codice della PR; action di deploy fissata a commit; gli agent non possono modificare i workflow (D6); ruoli del service account da verificare (Q20). Un branch `dev` intermedio non mitiga: `pull_request` si attiva qualunque sia il branch di destinazione |
-| Merge di codice degli agent con deploy live automatico (D35) finché il ruleset richiede 0 approve (D32) | Portare il ruleset a 2 approve prima di dare alle GitHub App degli agent il permesso di scrittura |
-| Repo pubblico: chiunque può aprire issue o commentare, con possibile prompt injection e consumo della quota | Avviare gli agent solo per utenti con permesso di scrittura (verificare `author_association` o il comportamento di default della action); non trattare come istruzioni il testo di utenti esterni |
+| Subscription rate limit during a run: the headless run stops and does not wait for the reset | `if: failure()` step that sets `agent-failed` and comments; `schedule` resume workflow with a retry threshold, then `needs-human` |
+| Work lost on an ephemeral runner | Intermediate commits and pushes on the working branch |
+| Inconsistent resume after an interruption | Idempotent agentP prompt: if a branch or PR exists for the issue, it resumes instead of starting over |
+| Pipeline minutes consumption | `timeout-minutes` on every job (GitHub default: 360 min); `--max-turns`; public repository for free minutes on GitHub-hosted runners |
+| Self-hosted runner on a public repository (running code from forks) | Use it only on a private repository or block fork triggers |
+| Agents modifying prompts or workflows | CODEOWNERS and reduced App permissions (D6) |
+| Decisions invented by agents | D5 |
+| Superficial review | agentMR based on CI build and test results; verifiable acceptance criteria in issues |
+| Confusion between personal tools and protections: IDE checks are not visible to agents | Every binding check lives in the repository configuration and in CI; the IDE (Rider/WebStorm, VS Code, Visual Studio) is only the user's review tool and uses the same ESLint configuration |
+| Correlated blind spots: agentP and agentMR based on the same model tend to accept the same mistakes | Deterministic checks in CI (strict TypeScript, linter with framework rules, tests); explicit review checklist in agentMR's prompt; a different model for review; human check of the behavior via preview channels |
+| Concurrent consumption | Global `concurrency` on agents (D7) |
+| Firebase service account secret exposed to the code of PRs from repository branches, including agents' PRs (`npm ci` and the build run PR code) | Preview workflow in two jobs: `preview-build` without secrets produces an artifact; `preview-deploy` receives the secret, uses `firebase.json` from the base branch (it can contain `predeploy` commands) and runs no PR code; deploy action pinned to a commit; agents cannot modify workflows (D6); service account roles to be verified (Q20). An intermediate `dev` branch does not mitigate this: `pull_request` triggers whatever the target branch |
+| Agent code merged and deployed live automatically (D35) while the ruleset requires 0 approvals (D32) | Raise the ruleset to 2 approvals before giving the agents' GitHub Apps write permission |
+| Public repository: anyone can open issues or comment, with possible prompt injection and quota consumption | Trigger agents only for users with write permission (verify `author_association` or the action's default behavior); never treat text from external users as instructions |
 
 ---
 
-## 6. Piano operativo
+## 6. Operational plan
 
-### Fase 0 - Preparazione
-- [x] Escludere GitLab Free (Q1).
-- [ ] Risolvere Q3-Q4.
-- [x] Decidere repo pubblico o privato (Q5): pubblico.
-- [x] Definire l'idea dell'app: catalogo personale di libri con collocazione fisica.
-- [x] Scegliere lo stack (D13, D20).
-- [ ] Redigere le specifiche funzionali della beta in `docs/specs/`.
-- [ ] Produrre con agentA il design realizzativo della beta in `docs/design/`.
-- [x] Creare il progetto Firebase `shelfmark` (id `shelfmark-bd1a8`).
-- [ ] Valutare una licenza separata (es. MIT o CC BY 4.0) per la cartella `agents/`.
-- [x] Creare il repository pubblico `shelfmark` (`git@github.com:giammin/shelfmark.git`, licenza AGPL-3.0, senza `.gitignore` iniziale).
-- [ ] Aggiungere al repository la struttura della sezione 2.4 e questo documento come `docs/working-doc.md`.
-- [x] Creare `AGENTS.md` e `CLAUDE.md` con il solo import `@AGENTS.md`.
-- [x] Creare le label della sezione 2.3.
-- [ ] Tradurre in inglese questo documento (D30).
-- [x] Configurare il ruleset iniziale su `main`: PR obbligatoria, CI verde, solo squash (D31, D32).
-- [x] Configurare CODEOWNERS su `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
-- [x] Abilitare sul progetto Firebase (piano Spark) Hosting e Firestore; registrare la web app; primo deploy (D34).
-- [x] Abilitare Auth con provider Google (solo da console: Authentication -> Sign-in method -> Google).
-- [ ] (Opzionale) Valutare un sito Hosting aggiuntivo con nome più pulito o un dominio personalizzato.
-- [x] Generare lo scheletro Angular + Angular Material + PWA con TypeScript strict (D26).
-- [x] Configurare `angular-eslint` con regole contro pattern obsoleti e leak di subscription (D28).
-- [x] Predisporre una CI minima (build, lint, test) prima che agentP scriva codice (D29).
-- [x] Aggiungere alla CI i test delle security rules con Emulator Suite (D34).
-- [x] Configurare i preview channel di Firebase Hosting per le PR e il deploy live su merge (D35).
-- [ ] Configurare gli IDE (Rider/WebStorm, VS Code) per usare la configurazione ESLint del progetto.
+### Phase 0 - Preparation
+- [x] Exclude GitLab Free (Q1).
+- [ ] Resolve Q3-Q4.
+- [x] Decide public or private repository (Q5): public.
+- [x] Define the app idea: personal book catalog with physical locations.
+- [x] Choose the stack (D13, D20).
+- [ ] Write the beta functional specifications in `docs/specs/`.
+- [ ] Produce the beta technical design with agentA in `docs/design/`.
+- [x] Create the Firebase project `shelfmark` (id `shelfmark-bd1a8`).
+- [ ] Evaluate a separate license (e.g. MIT or CC BY 4.0) for the `agents/` folder.
+- [x] Create the public repository `shelfmark` (`git@github.com:giammin/shelfmark.git`, AGPL-3.0 license, no initial `.gitignore`).
+- [ ] Add the structure of section 2.4 to the repository (this document is already in `docs/working-doc.md`).
+- [x] Create `AGENTS.md` and `CLAUDE.md` with only the `@AGENTS.md` import.
+- [x] Create the labels of section 2.3.
+- [x] Translate this document into English (D30).
+- [x] Configure the initial ruleset on `main`: mandatory PR, green CI, squash only (D31, D32).
+- [x] Configure CODEOWNERS on `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
+- [x] Enable Hosting and Firestore on the Firebase project (Spark plan); register the web app; first deploy (D34).
+- [x] Enable Auth with the Google provider (console only: Authentication -> Sign-in method -> Google).
+- [ ] (Optional) Evaluate an additional Hosting site with a cleaner name or a custom domain.
+- [x] Generate the Angular + Angular Material + PWA skeleton with strict TypeScript (D26).
+- [x] Configure `angular-eslint` with rules against obsolete patterns and subscription leaks (D28).
+- [x] Set up a minimal CI (build, lint, test) before agentP writes code (D29).
+- [x] Add security rules tests with the Emulator Suite to CI (D34).
+- [x] Configure Firebase Hosting preview channels for PRs and live deploy on merge (D35).
+- [ ] Configure the IDEs (Rider/WebStorm, VS Code) to use the project's ESLint configuration.
 
-### Fase 1 - Identità e strumenti locali
-- [ ] Creare 3 GitHub App (agentI, agentP, agentMR) con permessi minimi; nessun permesso `workflows`.
-- [ ] Prima di installare le App: portare il ruleset di `main` a 2 approve (D32, rischio deploy live).
-- [ ] Installare le App sul repository.
-- [ ] Scrivere `scripts/get-agent-token` (JWT firmato con chiave privata, installation token di durata 1 ora).
-- [ ] Preparare l'ambiente isolato (WSL o devcontainer) con `claude` e `gh`.
-- [ ] Scrivere `scripts/run-agent` (parametri: agent, numero issue/PR; worktree pulito; token dell'agent; flag headless).
+### Phase 1 - Identities and local tools
+- [ ] Create 3 GitHub Apps (agentI, agentP, agentMR) with minimal permissions; no `workflows` permission.
+- [ ] Before installing the Apps: raise the `main` ruleset to 2 approvals (D32, live deploy risk).
+- [ ] Install the Apps on the repository.
+- [ ] Write `scripts/get-agent-token` (JWT signed with the private key, installation token valid for 1 hour).
+- [ ] Prepare the isolated environment (WSL or devcontainer) with `claude` and `gh`.
+- [ ] Write `scripts/run-agent` (parameters: agent, issue/PR number; clean worktree; agent token; headless flags).
 
-### Fase 2 - Prompt
-- [ ] `AGENTS.md`: rimando al documento di lavoro, convenzioni, git workflow, formato commenti, uso delle label; convenzioni Angular (componenti standalone, signals, `@if`/`@for`, nessun `NgModule`).
-- [ ] `agents/issue-planner.md`: generazione issue con link alle specifiche e criteri di accettazione; regola D5.
-- [ ] `agents/developer.md`: presa in carico, chiarimenti, idempotenza, commit intermedi, apertura PR.
-- [ ] `agents/reviewer.md`: checklist di review esplicita (pattern Angular obsoleti, subscription non chiuse, uso di signals/computed, modifiche alle security rules senza test), uso dei risultati CI, limite di iterazioni, approvazione.
-- [ ] Scegliere per agentMR un modello diverso da quello di agentP.
-- [ ] `agents/architect.md`: supporto alla redazione delle specifiche.
+### Phase 2 - Prompts
+- [ ] `AGENTS.md`: pointer to the working document, conventions, git workflow, comment format, label usage; Angular conventions (standalone components, signals, `@if`/`@for`, no `NgModule`).
+- [ ] `agents/issue-planner.md`: issue generation with links to the specifications and acceptance criteria; rule D5.
+- [ ] `agents/developer.md`: picking up issues, clarifications, idempotency, intermediate commits, opening the PR.
+- [ ] `agents/reviewer.md`: explicit review checklist (obsolete Angular patterns, unclosed subscriptions, use of signals/computed, security rules changes without tests), use of CI results, iteration limit, approval.
+- [ ] Choose a different model for agentMR than for agentP.
+- [ ] `agents/architect.md`: technical design from the specifications and answers to technical clarifications (D21).
 
-### Fase 3 - Ciclo locale manuale
-- [ ] Eseguire un ciclo completo su un'issue piccola: agentI -> agentP -> agentMR -> umano.
-- [ ] Testare un chiarimento con risposta dalle specifiche e uno con escalation a `needs-human`.
-- [ ] Testare un'interruzione a metà lavoro (anche simulata) e la ripresa.
-- [ ] Iterare sui prompt fino alla convergenza del ciclo senza intervento umano.
+### Phase 3 - Manual local cycle
+- [ ] Run a full cycle on a small issue: agentI -> agentP -> agentMR -> human.
+- [ ] Test a clarification answered from the specifications and one escalated to `needs-human`.
+- [ ] Test an interruption mid-work (even simulated) and the resume.
+- [ ] Iterate on the prompts until the cycle converges without human intervention.
 
-### Fase 4 - Migrazione alle Actions (un agent alla volta)
-- [ ] agentMR: `agent-review.yml`, con `timeout-minutes`, `concurrency`, `--max-turns`.
-- [ ] Portare il ruleset di `main` a 2 approve con review CODEOWNERS obbligatoria (D32).
-- [ ] agentP: `agent-dev.yml`, con gestione `if: failure()` e label `agent-failed`.
+### Phase 4 - Migration to Actions (one agent at a time)
+- [ ] agentMR: `agent-review.yml`, with `timeout-minutes`, `concurrency`, `--max-turns`.
+- [ ] Raise the `main` ruleset to 2 approvals with mandatory CODEOWNERS review (D32).
+- [ ] agentP: `agent-dev.yml`, with `if: failure()` handling and the `agent-failed` label.
 - [ ] agentI: `agent-issues.yml`.
-- [ ] Ripresa automatica: `agent-retry.yml` (schedule, soglia di tentativi).
-- [ ] Verificare nella pratica il comportamento della action al raggiungimento del rate limit (Q3).
+- [ ] Automatic resume: `agent-retry.yml` (schedule, retry threshold).
+- [ ] Verify in practice the action's behavior when the rate limit is reached (Q3).
 
-### Fase 5 - Evoluzione
-- [ ] Valutare la rimozione dell'approve umano obbligatorio.
-- [ ] Valutare il parallelismo tra issue.
-- [ ] Valutare il passaggio ad API key con spending limit.
+### Phase 5 - Evolution
+- [ ] Evaluate removing the mandatory human approval.
+- [ ] Evaluate parallelism between issues.
+- [ ] Evaluate moving to an API key with a spending limit.
 
 ---
 
 ## 7. Open Questions
 
-| # | Domanda | Stato |
+| # | Question | Status |
 |---|---|---|
-| Q1 | GitLab Free come piattaforma | Chiusa: escluso, si usa GitHub |
-| Q2 | Su GitHub Free, ruleset/branch protection sono applicati sui repo privati? | Chiusa: non rilevante, repo pubblico (D12) |
-| Q3 | Comportamento esatto di `claude-code-action` al raggiungimento del limite di utilizzo (atteso: errore e job fallito; retry sui 429 transitori di breve durata) | Da verificare con test |
-| Q4 | Nomi e semantica esatti dei flag headless di Claude Code nella versione in uso | Da verificare (`claude --help`) |
-| Q5 | Repository pubblico o privato | Chiusa: pubblico (D12) |
-| Q6 | Idea e stack dell'applicazione | Chiusa: vedi D13 e sezione 10 |
-| Q9 | Framework frontend | Chiusa: Angular + Angular Material (D20) |
-| Q10 | Fonte metadati ISBN (Google Books, Open Library, entrambe) e copertura dei libri italiani | Aperta |
-| Q11 | Cloud Functions disponibili sul piano Spark? (ipotesi: no, serve Blaze) | Da verificare |
-| Q12 | Supporto scansione barcode su iOS | Rinviata: iOS fuori scope iniziale (D18) |
-| Q13 | Collocazioni piatte o gerarchiche | Chiusa: parent opzionale (D14) |
-| Q14 | App mono-utente o con condivisione | Chiusa: condivisione per luogo (D15) |
-| Q15 | Meccanismo di invito | Chiusa: link di invito (D16) |
-| Q16 | Rilascio della condivisione in fase successiva | Chiusa: sì, tre fasi (D17) |
-| Q17 | Metodo di autenticazione | Chiusa: Google (D19) |
-| Q7 | Ambiente di isolamento locale: WSL o devcontainer | Aperta |
-| Q8 | Valore iniziale del limite di iterazioni agentP <-> agentMR | Aperta |
-| Q18 | `npm audit`: vulnerabilità high in `vite` 8.3.0-8.3.2 tramite `@angular/build` 22.2.x (solo dev server); il fix proposto è un downgrade a 22.1.9 | Aperta: attendere una patch di `@angular/build` o valutare un `overrides` su `vite`. Con D34 si aggiungono vulnerabilità transitive di `firebase-tools` (solo strumenti) e di `@grpc/grpc-js` via `firebase` (lato server gRPC, non usato dall'SDK nel browser); i fix proposti da npm sono downgrade di major |
-| Q20 | Ruoli effettivi del service account creato da `firebase init hosting:github`; il login Google funziona sui domini dei preview channel o vanno aggiunti ai domini autorizzati di Auth? | Da verificare (console IAM; primo test di login su una preview) |
-| Q19 | Changelog automatico a partire dai commit di squash (titolo PR); Conventional Commits nei titoli delle PR adottati (D33); restano da scegliere lo strumento (es. release-please) e un eventuale controllo del titolo in CI | Aperta: da discutere più avanti |
+| Q1 | GitLab Free as the platform | Closed: excluded, GitHub is used |
+| Q2 | On GitHub Free, are rulesets/branch protection enforced on private repositories? | Closed: not relevant, public repository (D12) |
+| Q3 | Exact behavior of `claude-code-action` when the usage limit is reached (expected: error and failed job; retries on short transient 429s) | To be verified by testing |
+| Q4 | Exact names and semantics of Claude Code's headless flags in the version in use | To be verified (`claude --help`) |
+| Q5 | Public or private repository | Closed: public (D12) |
+| Q6 | App idea and stack | Closed: see D13 and section 10 |
+| Q7 | Local isolation environment: WSL or devcontainer | Open |
+| Q8 | Initial value of the agentP <-> agentMR iteration limit | Open |
+| Q9 | Frontend framework | Closed: Angular + Angular Material (D20) |
+| Q10 | ISBN metadata source (Google Books, Open Library, both) and coverage of Italian books | Open |
+| Q11 | Are Cloud Functions available on the Spark plan? (assumption: no, Blaze is required) | To be verified |
+| Q12 | Barcode scanning support on iOS | Postponed: iOS out of initial scope (D18) |
+| Q13 | Flat or hierarchical locations | Closed: optional parent (D14) |
+| Q14 | Single-user app or with sharing | Closed: sharing per place (D15) |
+| Q15 | Invitation mechanism | Closed: invitation link (D16) |
+| Q16 | Release sharing in a later phase | Closed: yes, three phases (D17) |
+| Q17 | Authentication method | Closed: Google (D19) |
+| Q18 | `npm audit`: high-severity vulnerability in `vite` 8.3.0-8.3.2 via `@angular/build` 22.2.x (dev server only); the proposed fix is a downgrade to 22.1.9 | Open: wait for an `@angular/build` patch or evaluate an `overrides` on `vite`. D34 adds transitive vulnerabilities from `firebase-tools` (tooling only) and from `@grpc/grpc-js` via `firebase` (gRPC server side, not used by the browser SDK); the fixes proposed by npm are major downgrades |
+| Q19 | Automatic changelog from squash commits (PR titles); Conventional Commits in PR titles adopted (D33); the tool (e.g. release-please) and an optional PR title check in CI remain to be chosen | Open: to be discussed later |
+| Q20 | Actual roles of the service account created by `firebase init hosting:github`; does Google sign-in work on preview channel domains, or must they be added to the Auth authorized domains? | To be verified (IAM console; first sign-in test on a preview) |
+| Q21 | Language(s) of the app's user interface: the default place name is drafted in Italian ("La biblioteca di {NOME}"), while `index.html` declares `lang="en"` | Open: to be decided in the specifications |
 
 ---
 
 ## 8. Progress
 
-| Data | Avanzamento |
+| Date | Progress |
 |---|---|
-| 2026-10-21 | Definiti obiettivi, architettura, decisioni iniziali e piano operativo. Nessuna attività implementativa avviata. |
-| 2026-10-21 | Esclusa GitLab Free (Q1). Definita l'idea dell'app (Q6). Aggiunto il rischio sui trigger da utenti esterni. |
-| 2026-10-21 | Scelto repository GitHub pubblico (D12); chiuse Q2 e Q5. |
-| 2026-10-21 | Scelto lo stack Firebase PWA (D13); bozza requisiti in sezione 10. |
-| 2026-10-21 | Collocazioni con parent opzionale (D14). |
-| 2026-10-21 | Condivisione per luogo con ruoli (D15). |
-| 2026-10-21 | Definiti luogo di default, invito via link e rilascio in due fasi (D16, D17). |
-| 2026-10-21 | Rilascio in tre fasi (D17), solo Android (D18), Cloud Functions ammesse se necessarie (D13). |
-| 2026-10-21 | Autenticazione solo Google (D19). |
-| 2026-10-21 | Frontend Angular + Angular Material (D20). Decisioni bloccanti chiuse. |
-| 2026-10-21 | Integrate in Fase 0 e Fase 2 le protezioni statiche, la checklist di review e il ruolo dell'IDE. |
-| 2026-10-21 | Aggiunto alla beta l'inserimento in serie con destinazione impostata (sezione 10). |
-| 2026-10-21 | Dettagliato il flusso dell'inserimento in serie (scelta all'avvio, switch conferma/automatico, avviso duplicati). |
-| 2026-10-21 | Ridefinito il ruolo di agentA come architect tecnico (D21); aggiunto `docs/design/`. |
-| 2026-10-21 | Beta con scope minimo (D22); sezione 10 riorganizzata in beta, backlog, casi aperti e vincoli. |
-| 2026-10-21 | Scelto il nome `shelfmark` (D23). |
-| 2026-10-21 | Creato il progetto Firebase `shelfmark-bd1a8`. |
-| 2026-10-21 | Scelta la licenza AGPL-3.0 (D24). |
-| 2026-10-21 | Creato il repository `giammin/shelfmark`. |
-| 2026-10-21 | Istruzioni agent-agnostiche in `AGENTS.md` (D25). |
-| 2026-10-21 | Creato `CLAUDE.md` con il solo import `@AGENTS.md` (D25). |
-| 2026-10-21 | Branch `chore/initial-setup`: scheletro Angular 22 + Material + PWA (D26), fine riga LF (D27), `.gitignore` esteso (segreti, Firebase, Visual Studio, impostazioni locali di Claude Code). Build e test verdi. |
-| 2026-10-21 | ESLint con regole Angular moderne e anti-leak (D28); CI minima `ci.yml` (D29). Lint, build e test verdi in locale; CI non ancora eseguita su GitHub. |
-| 2026-10-21 | Installato e autenticato `gh` (account personale, solo per il setup). Aperta la PR #1 `chore/initial-setup` -> `main`; CI verde su GitHub. |
-| 2026-10-21 | Lingua inglese per tutti gli artefatti tranne questo documento (D30); convenzione aggiunta in `AGENTS.md`. |
-| 2026-10-21 | PR #1 mergiata. Merge solo squash con eliminazione automatica dei branch (D31); create le label di stato; ruleset iniziale su `main` (D32); `CODEOWNERS`. Titoli delle PR in Conventional Commits (D33). |
-| 2026-10-21 | PR #2 mergiata. Branch `chore/firebase-setup`: Firestore creato in `europe-west8` con regole deny-all, web app registrata, primo deploy su `shelfmark-bd1a8.web.app` con header di cache verificati, test delle regole in CI (D34). |
-| 2026-10-21 | PR #3 mergiata; provider Google attivo in Auth. Branch `ci/hosting-previews`: preview channel per le PR e deploy live su merge (D35). |
+| 2026-10-21 | Goals, architecture, initial decisions and operational plan defined. No implementation started. |
+| 2026-10-21 | GitLab Free excluded (Q1). App idea defined (Q6). Risk on triggers from external users added. |
+| 2026-10-21 | Public GitHub repository chosen (D12); Q2 and Q5 closed. |
+| 2026-10-21 | Firebase PWA stack chosen (D13); requirements draft in section 10. |
+| 2026-10-21 | Locations with an optional parent (D14). |
+| 2026-10-21 | Sharing per place with roles (D15). |
+| 2026-10-21 | Default place, invitation via link and two-phase release defined (D16, D17). |
+| 2026-10-21 | Three-phase release (D17), Android only (D18), Cloud Functions allowed if needed (D13). |
+| 2026-10-21 | Google-only authentication (D19). |
+| 2026-10-21 | Angular + Angular Material frontend (D20). Blocking decisions closed. |
+| 2026-10-21 | Static protections, review checklist and the role of the IDE added to Phase 0 and Phase 2. |
+| 2026-10-21 | Batch entry with a set destination added to the beta (section 10). |
+| 2026-10-21 | Batch entry flow detailed (choice at start, confirm/automatic switch, duplicate warning). |
+| 2026-10-21 | agentA redefined as a technical architect (D21); `docs/design/` added. |
+| 2026-10-21 | Beta with minimal scope (D22); section 10 reorganized into beta, backlog, open cases and constraints. |
+| 2026-10-21 | Name `shelfmark` chosen (D23). |
+| 2026-10-21 | Firebase project `shelfmark-bd1a8` created. |
+| 2026-10-21 | AGPL-3.0 license chosen (D24). |
+| 2026-10-21 | Repository `giammin/shelfmark` created. |
+| 2026-10-21 | Agent-agnostic instructions in `AGENTS.md` (D25). |
+| 2026-10-21 | `CLAUDE.md` created with only the `@AGENTS.md` import (D25). |
+| 2026-10-21 | Branch `chore/initial-setup`: Angular 22 + Material + PWA skeleton (D26), LF line endings (D27), extended `.gitignore` (secrets, Firebase, Visual Studio, local Claude Code settings). Build and tests green. |
+| 2026-10-21 | ESLint with modern Angular and anti-leak rules (D28); minimal CI `ci.yml` (D29). Lint, build and tests green locally. |
+| 2026-10-21 | `gh` installed and authenticated (personal account, for setup only). PR #1 opened; CI green on GitHub. |
+| 2026-10-21 | English for all artifacts except this document (D30); convention added to `AGENTS.md`. |
+| 2026-10-21 | PR #1 merged. Squash-only merges with automatic branch deletion (D31); state labels created; initial `main` ruleset (D32); `CODEOWNERS`. PR titles in Conventional Commits (D33). |
+| 2026-10-21 | PR #2 merged. Firestore created in `europe-west8` with deny-all rules, web app registered, first deploy to `shelfmark-bd1a8.web.app` with verified cache headers, rules tests in CI (D34). |
+| 2026-10-21 | PR #3 merged; Google provider enabled in Auth. Preview channels for PRs and live deploy on merge (D35). |
+| 2026-10-21 | PR #4 merged; first live deploy from the workflow verified. This document translated into English (D30); Q21 added. |
 
 ---
 
 ## 9. Handoff
 
-- Stato: decisioni di piattaforma, stack e scope chiuse; Fase 0 in corso. In `main`: `CLAUDE.md`, scheletro Angular, fine riga, `.gitignore`, ESLint, CI minima. Configurati su GitHub: merge solo squash, label di stato, ruleset iniziale, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app e provider Google attivi (D34); branch `ci/hosting-previews` in PR (D35).
-- Prossimo passo: merge di `ci/hosting-previews` e verifica del primo deploy live da workflow; tradurre questo documento (D30); redigere le specifiche funzionali della beta a partire dalla sezione 10.1, poi il design con agentA.
-- Requisiti ambiente: Node >= 24.15 (Angular CLI 22); `gh` installato e autenticato con l'account personale (gli agent useranno i token delle GitHub App, sezione 4); Firebase CLI (`npx firebase`) autenticata con l'account Google privato dell'utente: le credenziali gcloud della macchina appartengono a un altro account e non vanno usate per questo progetto.
-- Note per chi riprende: leggere le sezioni 3 e 4 prima di qualsiasi attività; le ipotesi marcate "Da verificare" non vanno date per acquisite.
+- Status: platform, stack and scope decisions closed; Phase 0 in progress. On `main`: `CLAUDE.md`, Angular skeleton, line endings, `.gitignore`, ESLint, CI with rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels, initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35).
+- Next step: write the beta functional specifications from section 10.1 (deciding Q21), then the design with agentA.
+- Environment requirements: Node >= 24.15 (Angular CLI 22); `gh` installed and authenticated with the personal account (agents will use their GitHub App tokens, section 4); Firebase CLI (`npx firebase`) authenticated with the user's private Google account: the machine's gcloud credentials belong to a different account and must not be used for this project.
+- Notes for whoever resumes: read sections 3 and 4 before any activity; assumptions marked "To be verified" must not be taken for granted.
 
 ---
 
-## 10. Bozza requisiti dell'app (da trasferire in `docs/specs/`)
+## 10. App requirements draft (to be moved to `docs/specs/`)
 
-### 10.1 Beta (scope minimo, D22)
+### 10.1 Beta (minimal scope, D22)
 
-- Webapp responsive, installabile come PWA, target Android (D18).
-- Accesso con Google (D19); al primo accesso viene creato automaticamente il luogo di default "La biblioteca di {NOME}", non visibile come scelta finché esiste un solo luogo.
-- Gestione delle collocazioni con parent opzionale (D14): creazione, modifica, eliminazione.
-- Inserimento di un singolo libro tramite scansione del codice a barre ISBN, con recupero automatico dei metadati e inserimento manuale come fallback, assegnandolo a una collocazione.
-- Elenco dei libri, aperto direttamente all'avvio.
+- Responsive web app, installable as a PWA, targeting Android (D18).
+- Sign-in with Google (D19); at first sign-in the default place "{NAME}'s library" (Italian draft: "La biblioteca di {NOME}") is created automatically, not shown as a choice while it is the only place.
+- Management of locations with an optional parent (D14): create, edit, delete.
+- Entry of a single book by scanning its ISBN barcode, with automatic metadata lookup and manual entry as a fallback, assigning it to a location.
+- Book list, opened directly at startup.
 
-### 10.2 Backlog (da introdurre come modifiche alle specifiche)
+### 10.2 Backlog (to be introduced as specification changes)
 
-- Inserimento in serie:
-  - all'avvio dell'inserimento l'utente sceglie se procedere con un singolo libro o con una serie, e in questo caso imposta la collocazione di destinazione;
-  - durante la serie l'app indica in modo evidente e costante la collocazione in cui si sta inserendo;
-  - uno switch, modificabile anche durante la serie, determina se ogni libro richiede conferma o viene salvato automaticamente;
-  - un libro già presente genera un avviso e richiede conferma, anche in modalità automatica;
-  - (successivo) elenco dei libri inseriti nella sessione, con possibilità di modificarli.
-- Fase 2 - Luoghi multipli: più luoghi per utente (es. casa, casa al mare); nome del luogo modificabile; all'apertura l'app mostra i luoghi accessibili, o apre direttamente l'elenco dei libri se il luogo è uno solo.
-- Fase 3 - Condivisione: il proprietario genera un link di invito monouso, con scadenza lunga, per un luogo e un ruolo (lettura o scrittura); chi lo apre accede o si registra e diventa membro.
+- Batch entry:
+  - when starting an entry, the user chooses between a single book and a batch, and for a batch sets the destination location;
+  - during the batch, the app shows the destination location prominently and at all times;
+  - a switch, which can be changed during the batch, determines whether each book requires confirmation or is saved automatically;
+  - a book that is already present triggers a warning and requires confirmation, even in automatic mode;
+  - (later) list of the books entered in the session, with the option to edit them.
+- Phase 2 - Multiple places: several places per user (e.g. home, seaside house); editable place name; at startup the app shows the accessible places, or opens the book list directly if there is only one place.
+- Phase 3 - Sharing: the owner generates a single-use invitation link, with a long expiry, for a place and a role (read or write); whoever opens it signs in or registers and becomes a member.
 
-### 10.3 Casi aperti
+### 10.3 Open cases
 
-Lasciati aperti di proposito: emergono dal design di agentA o dai chiarimenti di agentP, e servono a testare il percorso di chiarimento.
+Deliberately left open: they will surface from agentA's design or from agentP's clarification requests, and serve to test the clarification path.
 
 Beta:
-- più copie dello stesso libro; libro già presente all'inserimento;
-- libro senza ISBN o con ISBN non trovato;
-- libro prestato o temporaneamente fuori posto;
-- eliminazione di una collocazione che contiene libri o sotto-collocazioni;
-- prevenzione dei cicli nella gerarchia;
-- nomi uguali sotto parent diversi: visualizzazione con il percorso completo;
-- spostamento di una collocazione sotto un altro parent;
-- ricerca dei libri in una collocazione: solo diretti o inclusi i discendenti;
-- nome del luogo di default quando il nome dell'utente non è disponibile.
+- multiple copies of the same book; book already present at entry;
+- book without an ISBN or with an ISBN not found;
+- book lent out or temporarily out of place;
+- deleting a location that contains books or sub-locations;
+- preventing cycles in the hierarchy;
+- identical names under different parents: display with the full path;
+- moving a location under another parent;
+- searching books in a location: direct ones only or including descendants;
+- default place name when the user's name is not available.
 
-Inserimento in serie:
-- effetto della conferma su un libro già presente (nuova copia o spostamento della copia esistente);
-- ISBN non trovato in modalità automatica;
-- cambio di destinazione senza chiudere la serie.
+Batch entry:
+- effect of confirming a book that is already present (new copy or moving the existing copy);
+- ISBN not found in automatic mode;
+- changing the destination without closing the batch.
 
-Fasi 2 e 3:
-- invito di una persona non ancora registrata (il link deve sopravvivere al flusso di registrazione);
-- scadenza, monouso e revoca dei link di invito;
-- chi può gestire i membri; revoca dell'accesso e abbandono di un luogo;
-- trasferimento della proprietà; eliminazione di un luogo;
-- spostamento di un libro tra luoghi (richiede scrittura su entrambi);
-- vista aggregata dei libri di tutti i luoghi accessibili.
+Phases 2 and 3:
+- inviting a person who is not yet registered (the link must survive the registration flow);
+- expiry, single use and revocation of invitation links;
+- who can manage members; revoking access and leaving a place;
+- transferring ownership; deleting a place;
+- moving a book between places (requires write access to both);
+- aggregated view of the books of all accessible places.
 
-### 10.4 Vincoli per il design (derivanti da D15, D16)
+### 10.4 Design constraints (from D15, D16)
 
-- Modello dati predisposto per luoghi e condivisione fin dalla beta: `places/{placeId}` con membri e ruoli; collocazioni e libri come sotto-collezioni del luogo.
-- Luogo di default con id deterministico, per evitare duplicati alla creazione.
-- Security rules testate con Firebase Emulator Suite in CI.
-- Preview channel di Firebase Hosting per ogni PR.
+- Data model ready for places and sharing from the beta: `places/{placeId}` with members and roles; locations and books as subcollections of the place.
+- Default place with a deterministic id, to avoid duplicates at creation.
+- Security rules tested with the Firebase Emulator Suite in CI.
+- Firebase Hosting preview channel for each PR.
