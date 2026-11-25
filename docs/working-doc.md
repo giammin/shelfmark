@@ -375,7 +375,6 @@ Deliberately left open: they will surface from agentA's design or from agentP's 
 
 Beta:
 - multiple copies of the same book; book already present at entry;
-- book without an ISBN or with an ISBN not found;
 - book lent out or temporarily out of place;
 - deleting a location that contains books or sub-locations;
 - preventing cycles in the hierarchy;

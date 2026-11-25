@@ -13,6 +13,7 @@ The current target is the beta: sign-in with Google, a single default place, loc
 | `AUTH` | [auth.md](auth.md) | Sign-in and session |
 | `PLACE` | [places.md](places.md) | The user's place |
 | `LOC` | [locations.md](locations.md) | Locations and their hierarchy |
+| `BOOK` | [books.md](books.md) | Book entry and book list |
 
 ## Requirement IDs
 
