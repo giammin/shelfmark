@@ -66,6 +66,15 @@ module.exports = defineConfig([
     extends: [angular.configs.templateRecommended, angular.configs.templateAccessibility],
     rules: {
       '@angular-eslint/template/prefer-self-closing-tags': 'error',
+      // Every user-visible text must be marked for translation with a custom ID (D41).
+      '@angular-eslint/template/i18n': 'error',
+    },
+  },
+  {
+    // The host page is not an Angular template: its texts cannot be translated with i18n markers.
+    files: ['src/index.html'],
+    rules: {
+      '@angular-eslint/template/i18n': 'off',
     },
   },
 ]);

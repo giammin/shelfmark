@@ -1,7 +1,7 @@
 # Agent Dev Team (shelfmark) - Working Document
 
 > Reference document for the project. If it disagrees with a conversation, this document prevails.
-> Last updated: 2026-11-18
+> Last updated: 2026-11-25
 
 ---
 
@@ -137,6 +137,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | D38 | Pull request states use native GitHub reviews: agentMR submits "Approve" or "Request changes" with its App; the PR labels `changes-requested` and `approved-by-agent` are dropped (`in-review` stays for issues) | Reviews cannot drift out of sync like labels; a review triggers `pull_request_review` for agentP; an App approval may count toward the required approvals (Q22) | PR state labels | Labels to remove from GitHub: see Phase 0 |
 | D39 | Each functional requirement has a stable ID (e.g. `LOC-003`); issues, acceptance criteria, clarifications and reviews cite IDs; agentI writes a marker with the covered IDs in each issue so that re-planning updates existing issues instead of duplicating them | References survive edits to headings and wording; makes re-planning idempotent and coverage checkable | Links to headings only | ID format defined with the first specifications |
 | D40 | Local phase as interactive Claude Code sessions started and watched by the human: each session loads the agent prompt (`--append-system-prompt-file agents/<agent>.md`) and uses the agent's GitHub App token; the human observes, intervenes and refines the prompts. Headless runs only to confirm that a tuned prompt works unattended; automation (Phase 4) only once roles and workflow are stable | The goal of the first phase is to learn how to organize the agents and write their prompts, which requires seeing what they do | Headless local runs from the start; direct move to Actions with `workflow_dispatch` (reconsidered for Phase 4) | Flag names verified in the CLI reference (Q4) |
+| D41 | App prepared for several languages from the start, shipping in English only: `@angular/localize` (source locale `en-US`), every user-visible text marked with `i18n`/`i18n-*` or `$localize` and a custom ID, enforced in templates by `@angular-eslint/template/i18n`; the Angular placeholder page replaced by `<router-outlet />`; data created for the user (e.g. the default place name) generated in the user's language | Retrofitting hardcoded strings is the expensive part; adding a language later is cheap once texts are marked; a deterministic check prevents agents from skipping it | Two languages from the beta; English only without preparation; Transloco (runtime language switching, extra dependency) | `$localize` in TypeScript is not checked by the linter and must be covered by agentMR's checklist; `@angular/localize` pinned to the installed Angular version (22.2.3): 22.3.0 requires `@angular/compiler` 22.3.0, so it moves with the Angular update. `src/index.html` is excluded from the rule (host page, not a template): a translated page title would be set at runtime with the `Title` service and `$localize` |
 
 ---
 
@@ -194,7 +195,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 - [ ] Add the structure of section 2.4 to the repository (this document is already in `docs/working-doc.md`).
 - [x] Create `AGENTS.md` and `CLAUDE.md` with only the `@AGENTS.md` import.
 - [x] Create the labels of section 2.3.
-- [ ] Remove the PR state labels `changes-requested` and `approved-by-agent` from GitHub (D38).
+- [x] Remove the PR state labels `changes-requested` and `approved-by-agent` from GitHub (D38).
 - [x] Translate this document into English (D30).
 - [x] Configure the initial ruleset on `main`: mandatory PR, green CI, squash only (D31, D32).
 - [x] Configure CODEOWNERS on `.github/`, `agents/`, `AGENTS.md`, `CLAUDE.md`.
@@ -203,6 +204,8 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 - [ ] (Optional) Evaluate an additional Hosting site with a cleaner name or a custom domain.
 - [x] Generate the Angular + Angular Material + PWA skeleton with strict TypeScript (D26).
 - [x] Configure `angular-eslint` with rules against obsolete patterns and subscription leaks (D28).
+- [x] Prepare the app for several languages with `@angular/localize`, English only, with the `template/i18n` lint rule (D41).
+- [ ] Update Angular to the latest 22.x (`ng update`), including `@angular/localize`; check whether it fixes Q18.
 - [x] Set up a minimal CI (build, lint, test) before agentP writes code (D29).
 - [x] Add security rules tests with the Emulator Suite to CI (D34).
 - [x] Configure Firebase Hosting preview channels for PRs and live deploy on merge (D35).
@@ -221,7 +224,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 - [ ] `AGENTS.md`: pointer to the working document, conventions, git workflow, comment format, label usage; Angular conventions (standalone components, signals, `@if`/`@for`, no `NgModule`).
 - [ ] `agents/issue-planner.md`: issue generation citing requirement IDs, with acceptance criteria and the covered-IDs marker (D39); answers to functional and technical clarifications from documents only (D5, D37).
 - [ ] `agents/developer.md`: picking up issues, clarifications, idempotency, intermediate commits, opening the PR, addressing review comments.
-- [ ] `agents/reviewer.md`: explicit review checklist (obsolete Angular patterns, unclosed subscriptions, use of signals/computed, security rules changes without tests), use of CI results, requirement coverage, GitHub review as outcome (D38), iteration limit.
+- [ ] `agents/reviewer.md`: explicit review checklist (obsolete Angular patterns, unclosed subscriptions, use of signals/computed, security rules changes without tests, user-visible strings in TypeScript without `$localize`), use of CI results, requirement coverage, GitHub review as outcome (D38), iteration limit.
 - [ ] Choose the models. Proposal: agentP and agentI on Sonnet 5.5 (many tool turns, lower cost per turn); agentMR on Opus 5.5 (a reviewer at least as capable as the developer, reading a diff costs fewer tokens); agentA on Opus 5.5.
 - [ ] `agents/architect.md`: technical design from the specifications, ADRs, design updates after escalations (D21, D37).
 
@@ -281,7 +284,7 @@ Steps:
 | Q18 | `npm audit`: high-severity vulnerability in `vite` 8.3.0-8.3.2 via `@angular/build` 22.2.x (dev server only); the proposed fix is a downgrade to 22.1.9 | Open: wait for an `@angular/build` patch or evaluate an `overrides` on `vite`. D34 adds transitive vulnerabilities from `firebase-tools` (tooling only) and from `@grpc/grpc-js` via `firebase` (gRPC server side, not used by the browser SDK); the fixes proposed by npm are major downgrades |
 | Q19 | Automatic changelog from squash commits (PR titles); Conventional Commits in PR titles adopted (D33); the tool (e.g. release-please) and an optional PR title check in CI remain to be chosen | Open: to be discussed later |
 | Q20 | Actual roles of the service account created by `firebase init hosting:github`; does Google sign-in work on preview channel domains, or must they be added to the Auth authorized domains? | To be verified (IAM console; first sign-in test on a preview) |
-| Q21 | Language(s) of the app's user interface: the default place name is drafted in Italian ("La biblioteca di {NOME}"), while `index.html` declares `lang="en"` | Open: to be decided in the specifications |
+| Q21 | Language(s) of the app's user interface: the default place name is drafted in Italian ("La biblioteca di {NOME}"), while `index.html` declares `lang="en"` | Closed: prepared for several languages, English only for now (D41) |
 | Q22 | Do approvals submitted by a GitHub App (agentMR) count toward the ruleset's required approvals? | To be verified when the Apps exist |
 | Q23 | How to collect duration, turns, tokens and estimated cost of an interactive Claude Code session for the run summary (D36): e.g. a session-end hook reading the transcript, or the `/cost` output | To be verified in Phase 1 |
 
@@ -321,6 +324,7 @@ Steps:
 | 2026-10-21 | PR #3 merged; Google provider enabled in Auth. Preview channels for PRs and live deploy on merge (D35). |
 | 2026-10-21 | PR #4 merged; first live deploy from the workflow verified. This document translated into English (D30); Q21 added. |
 | 2026-11-18 | Agent plan reviewed against the current Claude Code and `claude-code-action` documentation. Run summaries (D36); clarifications answered by agentI, agentA interactive only (D37); native PR reviews (D38); requirement IDs (D39); interactive local phase (D40). Phase 4 prerequisites, new risks, Q22-Q23 added; Q4 closed, Q3 partially answered. |
+| 2026-11-25 | PR state labels removed from GitHub (D38). App prepared for several languages, English only (D41); Q21 closed. |
 
 ---
 
