@@ -44,20 +44,19 @@ The user can enter a book's data by hand.
 Acceptance criteria:
 
 - From the book list, the user can start adding a book by entering its data by hand, without a lookup.
-- Manual entry offers the same data fields as the automatic lookup (BOOK-003).
-- A book cannot be saved without a title.
+- Manual entry offers the same data fields as the automatic lookup (BOOK-003), except possibly the cover (see notes).
 
 Notes:
 
 - Whether manual entry includes a cover (e.g. a photo taken by the user) is left to the design.
 
-## BOOK-005 Assign the location
+## BOOK-005 Save a book
 
-When adding a book, the user assigns it to a location.
+When adding a book, the user assigns it to a location and saves it.
 
 Acceptance criteria:
 
-- A book cannot be saved without a location, chosen among the locations of the place.
+- Whatever the entry path (lookup or manual), a book cannot be saved without a title and a location, chosen among the locations of the place.
 - While adding a book, the user can create a new location without leaving the entry, with the same rules as LOC-002, including when the place has no locations yet.
 - After saving, the book appears in the book list with its location.
 
@@ -67,7 +66,7 @@ The user can correct the data of a book already saved.
 
 Acceptance criteria:
 
-- The user can change the data of any book, with the same fields and rules as at entry (BOOK-004).
+- The user can change the data of any book, with the same fields as at entry (BOOK-004) and the same title rule (BOOK-005).
 - The changes are shown wherever the book appears.
 
 Notes:

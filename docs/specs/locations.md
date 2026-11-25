@@ -18,7 +18,7 @@ The user can create a location, optionally inside another location.
 
 Acceptance criteria:
 
-- A location cannot be created without a name.
+- A location cannot be created without a name; a name made only of spaces counts as no name.
 - The parent is optional and can be any existing location of the place, at any depth; a location without a parent is a top-level location.
 - Two locations with the same parent, or two top-level locations, cannot have the same name; names are compared ignoring letter case.
 - After creation, the location appears in the view of LOC-001.
@@ -34,7 +34,7 @@ The user can change the name of a location.
 Acceptance criteria:
 
 - The user can change the name of any location.
-- The new name follows the same rules as at creation (LOC-002): it cannot be empty or equal to the name of another location with the same parent.
+- The new name follows the same naming rules as at creation (LOC-002).
 - The new name is shown wherever the location appears, including as the parent of other locations and as the location of books.
 
 ## LOC-004 Delete an empty location
