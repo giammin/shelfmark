@@ -334,14 +334,18 @@ Steps:
 | 2026-11-25 | Requirement ID format decided (D39). ISBN coverage measured; Open Library behind an abstraction chosen for the beta (D42, Q10). |
 | 2026-11-25 | Functional specifications started on branch `docs/beta-specs` (D43): `docs/specs/README.md` and the `AUTH` area (AUTH-001 to AUTH-003) written; account deletion added to the backlog. |
 | 2026-11-25 | Areas `PLACE`, `LOC`, `BOOK`, `APP` written; independent review applied (PLACE-002 data isolation, save rules, lookup failure, invalid ISBN, data source per book). Open case "book without an ISBN or ISBN not found" closed by BOOK-003/004; background ISBN lookup added to the backlog. |
+| 2026-11-25 | PR #12 merged: beta functional specifications in `docs/specs/`. Next step planned: Q24-Q26, then `agents/architect.md`, then the design with agentA. |
 
 ---
 
 ## 9. Handoff
 
-- Status (2026-11-25): Phase 0 infrastructure complete. On `main`: Angular 22.3 skeleton with Material, PWA and `@angular/localize` (English only, D41), ESLint with modern Angular, anti-leak and i18n rules, CI with security rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels (PR state labels removed, D38), initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35). Agent plan revised for an interactive local phase (D36-D40). Requirement ID format decided (D39); ISBN lookup via Open Library behind an abstraction (D42), with Italian coverage measured as weak (Q10). No open PRs.
-- Specifications on branch `docs/beta-specs` (no PR until the human asks): all beta areas drafted and corrected by the human (`AUTH`, `PLACE`, `LOC`, `BOOK`, `APP`), checked by an independent review agent and fixed. Next: the human's final read of `docs/specs/`, then the PR when the human asks, then the design with agentA (section 10.4 constraints go to agentA as design constraints). Operational decisions still to take, before or with the design: configuration storage (Q24), logging and error reporting (Q25), user input normalization (Q26).
-- Next step: the human writes the beta functional specifications from section 10.1 in `docs/specs/`, with the requirement IDs of D39 and the ISBN lookup of D42 (manual entry as a primary path); then the design with agentA. In parallel: Phase 1 (GitHub Apps, isolated environment Q7 with devcontainer as the proposal, `run-agent` with run summaries, Q23).
+- Status (2026-11-25): Phase 0 infrastructure complete. On `main`: Angular 22.3 skeleton with Material, PWA and `@angular/localize` (English only, D41), ESLint with modern Angular, anti-leak and i18n rules, CI with security rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels (PR state labels removed, D38), initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35). Agent plan revised for an interactive local phase (D36-D40). Requirement ID format decided (D39); ISBN lookup via Open Library behind an abstraction (D42), with Italian coverage measured as weak (Q10). Beta functional specifications merged in `docs/specs/` (PR #12, D43): 19 requirements in areas `AUTH`, `PLACE`, `LOC`, `BOOK`, `APP`.
+- Next step, chosen by the human (to start in a later session): the technical design of the beta by agentA, run as D40 prescribes, in this order:
+  1. Decide the operational questions that affect the design: configuration storage (Q24), logging and error reporting (Q25), user input normalization (Q26). The assistant proposes options with a recommendation; Q26 may add a general rule to `docs/specs/app.md`.
+  2. Write `agents/architect.md` (Phase 2 item). Inputs for agentA: `docs/specs/`, the design constraints of section 10.4, decisions D13-D20, D26, D34, D41, D42 and the answers to Q24-Q26. Expected output in `docs/design/`: modules, UI components and views, Firestore data model, security rules, service contracts (e.g. the ISBN lookup abstraction of D42, the scanning abstraction of D18), implementation order, ADRs for significant choices. Design items already flagged: plain `firebase` SDK or AngularFire (D34), theme and fonts available offline (D26), Google sign-in on preview channel domains (Q20). agentA must not specify the open cases of section 10.3.
+  3. Run agentA interactively (`claude --append-system-prompt-file agents/architect.md`), watched by the human, refining the prompt from what it does; its changes go through the human's PRs (D37).
+- In parallel, when convenient: Phase 1 (GitHub Apps, isolated environment Q7 with devcontainer as the proposal, `run-agent` with run summaries, Q23).
 - Deferred with Q10: when Google Books is needed, the human creates an API key in the `shelfmark-bd1a8` Google Cloud project (Books API enabled, key restricted to the Books API and the site's referrers) using the private account, then the Wikidata-based coverage test is rerun against Google Books.
 - Pending decisions with a proposal: models per agent (Phase 2 item), iteration limit Q8 (proposal: 3 review rounds), separate license for `agents/`, changelog tool Q19.
 - Working mode for the first phases: agents run interactively and are watched by the human to tune organization and prompts (D40); automation only in Phase 4, after its prerequisites.
@@ -352,6 +356,8 @@ Steps:
 ---
 
 ## 10. App requirements draft (to be moved to `docs/specs/`)
+
+> The beta (10.1) is superseded by `docs/specs/` (PR #12), which prevails. Sections 10.2 and 10.3 remain the reference for the backlog and the open cases.
 
 ### 10.1 Beta (minimal scope, D22)
 
