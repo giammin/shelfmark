@@ -20,6 +20,7 @@ Acceptance criteria:
 
 - From the book list, the user can start adding a book by scanning its ISBN barcode.
 - The user can type the ISBN instead of scanning it, for example when the barcode cannot be read.
+- When scanning is not available (e.g. no camera, camera permission denied, unsupported browser), the app says so and offers typing the ISBN.
 - When an ISBN is scanned or typed, the app looks up the book's data automatically (BOOK-003).
 
 ## BOOK-003 Automatic book data

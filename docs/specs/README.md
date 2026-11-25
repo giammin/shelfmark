@@ -14,6 +14,7 @@ The current target is the beta: sign-in with Google, a single default place, loc
 | `PLACE` | [places.md](places.md) | The user's place |
 | `LOC` | [locations.md](locations.md) | Locations and their hierarchy |
 | `BOOK` | [books.md](books.md) | Book entry and book list |
+| `APP` | [app.md](app.md) | The app as a whole |
 
 ## Requirement IDs
 
