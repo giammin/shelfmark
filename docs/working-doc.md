@@ -365,6 +365,7 @@ Steps:
   - a switch, which can be changed during the batch, determines whether each book requires confirmation or is saved automatically;
   - a book that is already present triggers a warning and requires confirmation, even in automatic mode;
   - (later) list of the books entered in the session, with the option to edit them.
+- Background ISBN lookup: books whose ISBN was not found (or whose lookup failed) are looked up again in the background (Firebase trigger or scheduled job, likely requiring Cloud Functions and the Blaze plan, Q11); when data is found, the user is notified and can accept or reject the update. Relies on the data source recorded for each book (BOOK-005).
 - Account deletion: the user can delete their account and all their data. Not in the beta; required before the app is opened to other users (GDPR right to erasure).
 - Phase 2 - Multiple places: several places per user (e.g. home, seaside house); editable place name; at startup the app shows the accessible places, or opens the book list directly if there is only one place.
 - Phase 3 - Sharing: the owner generates a single-use invitation link, with a long expiry, for a place and a role (read or write); whoever opens it signs in or registers and becomes a member.
