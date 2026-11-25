@@ -139,6 +139,7 @@ CLAUDE.md                 # contains only the @AGENTS.md import
 | D40 | Local phase as interactive Claude Code sessions started and watched by the human: each session loads the agent prompt (`--append-system-prompt-file agents/<agent>.md`) and uses the agent's GitHub App token; the human observes, intervenes and refines the prompts. Headless runs only to confirm that a tuned prompt works unattended; automation (Phase 4) only once roles and workflow are stable | The goal of the first phase is to learn how to organize the agents and write their prompts, which requires seeing what they do | Headless local runs from the start; direct move to Actions with `workflow_dispatch` (reconsidered for Phase 4) | Flag names verified in the CLI reference (Q4) |
 | D41 | App prepared for several languages from the start, shipping in English only: `@angular/localize` (source locale `en-US`), every user-visible text marked with `i18n`/`i18n-*` or `$localize` and a custom ID, enforced in templates by `@angular-eslint/template/i18n`; the Angular placeholder page replaced by `<router-outlet />`; data created for the user (e.g. the default place name) generated in the user's language | Retrofitting hardcoded strings is the expensive part; adding a language later is cheap once texts are marked; a deterministic check prevents agents from skipping it | Two languages from the beta; English only without preparation; Transloco (runtime language switching, extra dependency) | `$localize` in TypeScript is not checked by the linter and must be covered by agentMR's checklist; `@angular/localize` requires the exact same `@angular/compiler` version, so it is always updated together with Angular (`ng update`). `src/index.html` is excluded from the rule (host page, not a template): a translated page title would be set at runtime with the `Title` service and `$localize` |
 | D42 | ISBN metadata lookup: Open Library for the beta, called from the client, behind an abstraction that allows switching to Google Books or another service (or chaining several) without changes elsewhere in the app; manual entry is a primary path, not a rare fallback | Open Library needs no key and no billing; the abstraction keeps the choice reversible. Google Books without an API key is unusable (every anonymous request returned 429 with a daily quota of 0 on 2026-11-25) | Google Books with a client-side API key restricted to the Books API and the site's referrers (viable, kept as the first candidate for the switch); Cloud Function proxy hiding the key (requires the Blaze plan, adds code, deploy and latency; the proxy endpoint would itself be public, so the gain is small; reconsider for abuse, a shared cache or merging sources server-side) | Open Library coverage of Italian books is weak (Q10): manual entry will be frequent |
+| D43 | Functional specifications in `docs/specs/`: one file per area plus a `README.md` with the ID rules (D39), the beta scope and the withdrawn requirements; each requirement has an ID, a title, a one-sentence statement, 2-4 testable acceptance criteria and optional notes, with no UI or data details (those belong to `docs/design/`). Written area by area: the assistant drafts an area, the human corrects it, and behaviors not stated in section 10 are raised as questions instead of being written; the open cases of section 10.3 stay unspecified on purpose | Acceptance criteria written by the human keep edge cases from being decided silently by agentI, so unresolved cases surface as clarification requests; drafting area by area fixes the format once and keeps every sentence a human decision | Acceptance criteria derived by agentI; a full draft by the assistant reviewed in one PR (implicit choices approved unnoticed); specifications written by the human from a template (slowest); a single specification file | Section 10.4 constraints go to agentA as design constraints, not into the functional specifications |
 
 ---
 
@@ -288,6 +289,9 @@ Steps:
 | Q21 | Language(s) of the app's user interface: the default place name is drafted in Italian ("La biblioteca di {NOME}"), while `index.html` declares `lang="en"` | Closed: prepared for several languages, English only for now (D41) |
 | Q22 | Do approvals submitted by a GitHub App (agentMR) count toward the ruleset's required approvals? | To be verified when the Apps exist |
 | Q23 | How to collect duration, turns, tokens and estimated cost of an interactive Claude Code session for the run summary (D36): e.g. a session-end hook reading the transcript, or the `/cost` output | To be verified in Phase 1 |
+| Q24 | Where to keep the app configuration (Firebase web config, lookup service endpoints, feature switches): Angular environment files, Firebase Remote Config, Firestore, build-time variables | Open: to be decided before or with the design |
+| Q25 | App and error logging: what to log, where (e.g. Firebase Crashlytics is not available for web; Google Cloud Logging, Sentry, a Firestore collection), how to avoid personal data in logs | Open: to be decided before or with the design |
+| Q26 | Normalization of user input (e.g. trimming spaces, collapsing internal spaces, ISBN hyphens and spaces, letter case): general rule in the specifications (APP area) or per field in the design | Open: LOC-002 already treats a name made only of spaces as no name |
 
 ---
 
@@ -328,12 +332,15 @@ Steps:
 | 2026-11-25 | PR state labels removed from GitHub (D38). App prepared for several languages, English only (D41); Q21 closed. |
 | 2026-11-25 | Angular 22.3, `angular-eslint` 22.8 and other dependencies updated within their major versions; `vite` vulnerability gone, 0 vulnerabilities in production dependencies (Q18). |
 | 2026-11-25 | Requirement ID format decided (D39). ISBN coverage measured; Open Library behind an abstraction chosen for the beta (D42, Q10). |
+| 2026-11-25 | Functional specifications started on branch `docs/beta-specs` (D43): `docs/specs/README.md` and the `AUTH` area (AUTH-001 to AUTH-003) written; account deletion added to the backlog. |
+| 2026-11-25 | Areas `PLACE`, `LOC`, `BOOK`, `APP` written; independent review applied (PLACE-002 data isolation, save rules, lookup failure, invalid ISBN, data source per book). Open case "book without an ISBN or ISBN not found" closed by BOOK-003/004; background ISBN lookup added to the backlog. |
 
 ---
 
 ## 9. Handoff
 
 - Status (2026-11-25): Phase 0 infrastructure complete. On `main`: Angular 22.3 skeleton with Material, PWA and `@angular/localize` (English only, D41), ESLint with modern Angular, anti-leak and i18n rules, CI with security rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels (PR state labels removed, D38), initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35). Agent plan revised for an interactive local phase (D36-D40). Requirement ID format decided (D39); ISBN lookup via Open Library behind an abstraction (D42), with Italian coverage measured as weak (Q10). No open PRs.
+- Specifications on branch `docs/beta-specs` (no PR until the human asks): all beta areas drafted and corrected by the human (`AUTH`, `PLACE`, `LOC`, `BOOK`, `APP`), checked by an independent review agent and fixed. Next: the human's final read of `docs/specs/`, then the PR when the human asks, then the design with agentA (section 10.4 constraints go to agentA as design constraints). Operational decisions still to take, before or with the design: configuration storage (Q24), logging and error reporting (Q25), user input normalization (Q26).
 - Next step: the human writes the beta functional specifications from section 10.1 in `docs/specs/`, with the requirement IDs of D39 and the ISBN lookup of D42 (manual entry as a primary path); then the design with agentA. In parallel: Phase 1 (GitHub Apps, isolated environment Q7 with devcontainer as the proposal, `run-agent` with run summaries, Q23).
 - Deferred with Q10: when Google Books is needed, the human creates an API key in the `shelfmark-bd1a8` Google Cloud project (Books API enabled, key restricted to the Books API and the site's referrers) using the private account, then the Wikidata-based coverage test is rerun against Google Books.
 - Pending decisions with a proposal: models per agent (Phase 2 item), iteration limit Q8 (proposal: 3 review rounds), separate license for `agents/`, changelog tool Q19.
@@ -362,6 +369,9 @@ Steps:
   - a switch, which can be changed during the batch, determines whether each book requires confirmation or is saved automatically;
   - a book that is already present triggers a warning and requires confirmation, even in automatic mode;
   - (later) list of the books entered in the session, with the option to edit them.
+- Background ISBN lookup: books whose ISBN was not found (or whose lookup failed) are looked up again in the background (Firebase trigger or scheduled job, likely requiring Cloud Functions and the Blaze plan, Q11); when data is found, the user is notified and can accept or reject the update. Relies on the data source recorded for each book (BOOK-005).
+- Lookup data review: show which book fields the user changed compared with the data received from the lookup, and restore the original values (data already kept by BOOK-005).
+- Account deletion: the user can delete their account and all their data. Not in the beta; required before the app is opened to other users (GDPR right to erasure).
 - Phase 2 - Multiple places: several places per user (e.g. home, seaside house); editable place name; at startup the app shows the accessible places, or opens the book list directly if there is only one place.
 - Phase 3 - Sharing: the owner generates a single-use invitation link, with a long expiry, for a place and a role (read or write); whoever opens it signs in or registers and becomes a member.
 
@@ -371,7 +381,6 @@ Deliberately left open: they will surface from agentA's design or from agentP's 
 
 Beta:
 - multiple copies of the same book; book already present at entry;
-- book without an ISBN or with an ISBN not found;
 - book lent out or temporarily out of place;
 - deleting a location that contains books or sub-locations;
 - preventing cycles in the hierarchy;
