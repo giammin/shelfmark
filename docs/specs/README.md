@@ -11,6 +11,7 @@ The current target is the beta: sign-in with Google, a single default place, loc
 | Prefix | File | Content |
 |---|---|---|
 | `AUTH` | [auth.md](auth.md) | Sign-in and session |
+| `PLACE` | [places.md](places.md) | The user's place |
 
 ## Requirement IDs
 
