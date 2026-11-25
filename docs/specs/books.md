@@ -61,7 +61,7 @@ Acceptance criteria:
 
 - Whatever the entry path (lookup or manual), a book cannot be saved without a title and a location, chosen among the locations of the place.
 - While adding a book, the user can create a new location without leaving the entry, with the same rules as LOC-002, including when the place has no locations yet.
-- The app records, for each book, where its data came from: the book database that provided it, or manual entry.
+- The app records, for each book, where its data came from (the book database that provided it, or manual entry) and keeps the data as received from the lookup, unchanged by later edits, so that it can tell which fields the user changed and restore them.
 - After saving, the book appears in the book list with its location.
 
 ## BOOK-006 Edit a book
