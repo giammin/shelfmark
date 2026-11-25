@@ -330,13 +330,14 @@ Steps:
 | 2026-11-25 | Angular 22.3, `angular-eslint` 22.8 and other dependencies updated within their major versions; `vite` vulnerability gone, 0 vulnerabilities in production dependencies (Q18). |
 | 2026-11-25 | Requirement ID format decided (D39). ISBN coverage measured; Open Library behind an abstraction chosen for the beta (D42, Q10). |
 | 2026-11-25 | Functional specifications started on branch `docs/beta-specs` (D43): `docs/specs/README.md` and the `AUTH` area (AUTH-001 to AUTH-003) written; account deletion added to the backlog. |
+| 2026-11-25 | Areas `PLACE`, `LOC`, `BOOK`, `APP` written; independent review applied (PLACE-002 data isolation, save rules, lookup failure, invalid ISBN, data source per book). Open case "book without an ISBN or ISBN not found" closed by BOOK-003/004; background ISBN lookup added to the backlog. |
 
 ---
 
 ## 9. Handoff
 
 - Status (2026-11-25): Phase 0 infrastructure complete. On `main`: Angular 22.3 skeleton with Material, PWA and `@angular/localize` (English only, D41), ESLint with modern Angular, anti-leak and i18n rules, CI with security rules tests, Firebase configuration, Hosting preview and live deploy workflows. Configured on GitHub: squash-only merges, state labels (PR state labels removed, D38), initial ruleset, `CODEOWNERS` (D31, D32). Firebase: Firestore, Hosting, web app and Google provider active (D34, D35). Agent plan revised for an interactive local phase (D36-D40). Requirement ID format decided (D39); ISBN lookup via Open Library behind an abstraction (D42), with Italian coverage measured as weak (Q10). No open PRs.
-- Specifications in progress on branch `docs/beta-specs` (no PR until the human asks): `AUTH` done; remaining areas in order `PLACE`, `LOC`, `BOOK`, `APP`, drafted by the assistant one at a time and corrected by the human (D43).
+- Specifications on branch `docs/beta-specs` (no PR until the human asks): all beta areas drafted and corrected by the human (`AUTH`, `PLACE`, `LOC`, `BOOK`, `APP`), checked by an independent review agent and fixed. Next: the human's final read of `docs/specs/`, then the PR when the human asks, then the design with agentA (section 10.4 constraints go to agentA as design constraints).
 - Next step: the human writes the beta functional specifications from section 10.1 in `docs/specs/`, with the requirement IDs of D39 and the ISBN lookup of D42 (manual entry as a primary path); then the design with agentA. In parallel: Phase 1 (GitHub Apps, isolated environment Q7 with devcontainer as the proposal, `run-agent` with run summaries, Q23).
 - Deferred with Q10: when Google Books is needed, the human creates an API key in the `shelfmark-bd1a8` Google Cloud project (Books API enabled, key restricted to the Books API and the site's referrers) using the private account, then the Wikidata-based coverage test is rerun against Google Books.
 - Pending decisions with a proposal: models per agent (Phase 2 item), iteration limit Q8 (proposal: 3 review rounds), separate license for `agents/`, changelog tool Q19.
